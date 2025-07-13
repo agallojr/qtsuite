@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt01-examples-wciscc2025"
+version = "0.1.0"
+description = "examples using the ORNL WCISCC code for HHL"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+
+# Declare that dependencies will also come from setup.py
+dynamic = ["dependencies"]
+
+[tool.setuptools]
+packages = {find = {where = ["src"]}}
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
