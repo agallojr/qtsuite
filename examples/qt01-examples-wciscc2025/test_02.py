@@ -4,95 +4,63 @@ circuit construction from the circuit execution. This will let us exercise their
 more broadly.
 """
 
-from lwfm.base.JobDefn import JobDefn
+import sys
+sys.path.append("wciscc2025/qlsa")
+
+#pylint: disable=wrong-import-position
+
+import numpy as np
+from scipy.sparse import diags
+from qiskit.qasm2 import dumps
+
 from lwfm.base.Workflow import Workflow
+from lwfm.base.JobDefn import JobDefn
 from lwfm.midware.LwfManager import lwfManager
 
+from linear_solvers import HHL
 
 if __name__ == '__main__':
-
-    site = lwfManager.getSite("local")
-
-    # define a workflow, give it some metadata
+    # define a workflow, give it some metadata, though we only have one job to run
     wf = Workflow()
     wf.setName("qt01_examples_wciscc2025.test_02")
     wf.setDescription("running the ORNL WCISCC2025 in 2 parts - circuit build & run")
     wf.setProps({"cuzReason": "for giggles"})
 
-    # Generate matrix and vector
-    # We use a sample tridiagonal system. It's 2x2 version is:
-    # matrix = np.array([ [1, -1/3], [-1/3, 1] ])
-    # vector = np.array([1, 0])
-    n_qubits_matrix = args.NQ_MATRIX
-    MATRIX_SIZE = 2 ** n_qubits_matrix
-    # entries of the tridiagonal Toeplitz symmetric matrix
-    a = 1
-    b = -1/3
-    matrix = diags([b, a, b],
+    # Generate matrix and vector for linear solver for some number of qubits
+    N_QUBITS_MATRIX = 2
+    MATRIX_SIZE = 2 ** N_QUBITS_MATRIX
+    A = 1
+    B = -1/3
+    matrix = diags([B, A, B],
                 [-1, 0, 1],
                 shape=(MATRIX_SIZE, MATRIX_SIZE)).toarray()
     vector = np.array([1] + [0]*(MATRIX_SIZE - 1))
 
-    # ============
-    # Select backend: Using different simulators (default in `linear_solvers`
-    # is statevector simulation)
-    backend = AerSimulator(method='statevector')
-    backend.set_options(precision='single')
+    # make a circuit using the ORNL HHL code & take a look at it
+    hhl = HHL(1e-3)
+    circ = hhl.construct_circuit(matrix, vector)
+    print(circ.draw())
 
-    # ============
-    # Setup HHL solver
-    hhl = HHL(1e-3, quantum_instance=backend)
-    print(f'Simulator: {backend}')
+    # now run this on IBM hardware - a local simulator, and real computer in the cloud
+    site = lwfManager.getSite("ibm-quantum-venv")
+    jobDefn = JobDefn()
+    site.getRunDriver().submit(jobDefn, wf)
 
-    # ============
-    # Solutions
-    print('======================')
-    # Classical
-    t = time.time()
-    classical_solution = NumPyLinearSolver().solve(matrix, vector/np.linalg.norm(vector))
-    elpsdt = time.time() - t
-    print(f'Time elapsed for classical:\n{int(elpsdt/60)} min {elpsdt%60:.2f} sec')
-    # HHL
-    t = time.time()
-    hhl_solution = hhl.solve(matrix, vector)
-    elpsdt = time.time() - t
-    print(f'Time elapsed for HHL:\n{int(elpsdt/60)} min {elpsdt%60:.2f} sec')
+    # define the job & some runtime args
+    # qpy.dump(circ, "/tmp/hhl.qpy")
+    jobDefn = JobDefn(dumps(circ), JobDefn.ENTRY_TYPE_STRING, {"format": "qasm"})
+    runArgs = {
+        "shots": 1024,                  # number of runs of the circuit
+        "optimization_level": 3         # agressive transpiler optimization (values: 0-3)
+    }
+    runArgs["computeType"] = "ibm_brisbane_aer"  # run on an aer simulator
+    statusA = site.getRunDriver().submit(jobDefn, wf, runArgs["computeType"], runArgs)
+    # we will wait synchronously
+    statusA = lwfManager.wait(statusA.getJobId())
+    print(statusA)
 
-    # ============
-    # Circuits
-    print('======================')
-    print('HHL circuit:')
-    print(hhl_solution.state)
 
-    # ============
-    # Comparing the observable - Euclidean norm
-    print('======================')
-    print(f'Euclidean norm classical:\n{classical_solution.euclidean_norm}')
-    print(f'Euclidean norm HHL:\n{hhl_solution.euclidean_norm} (diff (%): {np.abs(classical_solution.euclidean_norm-hhl_solution.euclidean_norm)*100/classical_solution.euclidean_norm:1.3e})')
-
-    # ============
-    # Comparing the solution vectors component-wise
-    print('======================')
-    from qiskit.quantum_info import Statevector
-    def get_solution_vector(solution, nstate):
-        """
-        Extracts and normalizes simulated state vector
-        from LinearSolverResult.
-        """
-        # solution_vector = Statevector(solution.state).data[-nstate:].real
-        temp = Statevector(solution.state)
-        ID = np.where(np.abs(temp.data[:].real)<1e-10)[0]
-        A = temp.data[:]
-        A[ID] = 0+0j
-        B = temp.data[:].real
-        B[ID] = 0
-        # print(f'# of elements in solution vector: {len(B)}')
-        istart = int(len(B)/2)
-        solution_vector = temp.data[istart:istart+nstate].real
-        norm = solution.euclidean_norm
-        return norm * solution_vector / np.linalg.norm(solution_vector)
-
-    print(f'Classical solution vector:\n{classical_solution.state}')
-    solvec_hhl = get_solution_vector(hhl_solution, MATRIX_SIZE)
-    print(f'HHL solution vector:\n{solvec_hhl}')
-    print(f'diff (%):\n{np.abs(classical_solution.state-solvec_hhl)*100/classical_solution.state}')
+    # now demonstrate the same in a second run on a real backend in the cloud
+    # runArgs["computeType"] = runArgs["computeType"].replace("_aer", "")
+    # statusB = site.getRunDriver().submit(jobDefn, wf, runArgs["computeType"], runArgs)
+    # statusB = lwfManager.wait(statusB.getJobId())

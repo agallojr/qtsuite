@@ -3,23 +3,22 @@ help install dependencies
 """
 
 import os
+import sys
 import subprocess
 from setuptools import setup
 
 # Clone the WCISCC2025 repository if it doesn't exist
-repo_url = "https://github.com/olcf/wciscc2025"
-repo_dir = "wciscc2025"
-if not os.path.exists(repo_dir):
-    print(f"Cloning {repo_url}...")
-    subprocess.check_call(["git", "clone", repo_url])
-    print(f"Successfully cloned {repo_url} to {repo_dir}")
+REPO_URL = "https://github.com/olcf/wciscc2025"
+REPO_DIR = "wciscc2025"
+if not os.path.exists(REPO_DIR):
+    print(f"Cloning {REPO_URL}...")
+    subprocess.check_call(["git", "clone", REPO_URL])
+    print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
 else:
-    print(f"Found existing {repo_dir} directory")
-
-subprocess.check_call(['uv', 'pip', 'install', '-r', 'wciscc2025/qlsa/requirements.txt'])
+    print(f"Found existing {REPO_DIR} directory")
 
 # Parse requirements from file
-req_file = os.path.join('wciscc2025', 'qlsa', 'requirements.txt')
+req_file = os.path.join(REPO_DIR, 'qlsa', 'requirements.txt')
 dependencies = []
 
 if os.path.exists(req_file):
@@ -32,7 +31,6 @@ if os.path.exists(req_file):
 else:
     print(f"Warning: {req_file} not found!")
 
-
 extra_depends = [
     "lwfm @ git+https://github.com/lwfm-proj/lwfm",
     "setuptools",
@@ -41,7 +39,7 @@ extra_depends = [
     "toml"
 ]
 
-dependencies.append(extra_depends)
+dependencies.extend(extra_depends)
 
 # Dynamic dependency configuration
 setup(
