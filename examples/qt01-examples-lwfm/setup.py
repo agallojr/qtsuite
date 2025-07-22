@@ -18,6 +18,8 @@ else:
     print(f"Found existing {REPO_DIR} directory")
 
 # Parse requirements from file
+# notice here no dependency on qiskit - its all in the qlsa requirements.txt, meaning,
+# its their dependent version of qiskit etc
 req_file = os.path.join(REPO_DIR, 'qlsa', 'requirements.txt')
 dependencies = []
 
@@ -32,7 +34,7 @@ else:
     print(f"Warning: {req_file} not found!")
 
 extra_depends = [
-    "lwfm @ git+https://github.com/lwfm-proj/lwfm",
+    "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",
     "setuptools",
     "numpy",
     "scipy",

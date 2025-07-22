@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qt01-cfd-wciscc2025"
 version = "0.1.0"
-description = "quantum CFD test cases using the ORNL WCISCC code for HHL"
+description = "examples using ORNL HHL code from WCISCC 2025"
 readme = "README.md"
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.11,<3.12"
 
 # Declare that dependencies will also come from setup.py
 dynamic = ["dependencies"]
