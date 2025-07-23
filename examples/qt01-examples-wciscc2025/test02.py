@@ -27,7 +27,7 @@ from linear_solvers import HHL
 
 if __name__ == '__main__':
     wf = Workflow()
-    wf.setName("qt01_examples_lwfm.test02")
+    wf.setName("qt01_examples_wciscc2025.test02")
     wf.setProps({"cuzReason": "for giggles"})   # arbitrary metadata about the workflow
 
     # Generate matrix and vector for linear solver for some number of qubits, then
@@ -80,14 +80,14 @@ if __name__ == '__main__':
         runArgs["computeType"] = target
         status = site.getRunDriver().submit(jobDefn, wf, runArgs["computeType"], runArgs)
 
-        # set an async handler to mine the results & notate, when the job completes
+        # set an async handler to mine the results when the job completes
         # note the convenient alternative syntax for calling site methods
         outfile = f"/tmp/job_{status.getJobId()}_results.txt"
         outfile_list.append(outfile)
         statusEvent = lwfManager.setEvent(JobEvent(status.getJobId(), JobStatus.COMPLETE,
-            JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,
+            JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,        # fire this handler
                     [status.getJobId(), outfile]),
-            "ibm-quantum-venv", None, status.getJobContext()))
+            "ibm-quantum-venv", None, status.getJobContext()))  # on this site, in wf context
 
         # do something special after the last iteration - send an email that the workflow is done
         if is_last_iteration and statusEvent:

@@ -865,7 +865,7 @@ wheels = [
 [[package]]
 name = "lwfm"
 version = "0.1.0"
-source = { git = "https://github.com/lwfm-proj/lwfm?rev=develop#7f39302bb51d565555d5ab4c2e95f86ee5a38d2c" }
+source = { git = "https://github.com/lwfm-proj/lwfm?rev=develop#4beff9792ca7407bda0117fdb9136e4abc2febac" }
 dependencies = [
     { name = "dill" },
     { name = "flask" },
@@ -1511,7 +1511,7 @@ wheels = [
 ]
 
 [[package]]
-name = "qt01-examples-lwfm"
+name = "qt01-examples-wciscc2025"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
