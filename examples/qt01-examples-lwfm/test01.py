@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     # define a workflow, give it some metadata about the project
     wf = Workflow()
-    wf.setName("qt01_examples_wciscc2025.test_01")
+    wf.setName("qt01_examples_wciscc2025.test01")
     wf.setDescription("running the ORNL WCISCC2025 code as-is iteratively by qubit count")
     wf.setProps({"cuzReason": "for giggles"})
     logger.info(f"Workflow created with name: {wf.getName()}")
@@ -78,10 +78,10 @@ if __name__ == '__main__':
                             "cuzReason": "for more giggles" })
     logger.info(f"Results file {output_filename}")
 
-    # let's show we can find it again
-    metasheets = lwfManager.find({"workflowId": wf.getWorkflowId()})
-    if not metasheets:
-        logger.warning("No metadata sheets found for the workflow")
-    else:
-        for sheet in metasheets:
-            logger.info(f"Found metadata sheet: {sheet}")
+    # # let's show we can find it again
+    # metasheets = lwfManager.find({"workflowId": wf.getWorkflowId()})
+    # if not metasheets:
+    #     logger.warning("No metadata sheets found for the workflow")
+    # else:
+    #     for sheet in metasheets:
+    #         logger.info(f"Found metadata sheet: {sheet}")

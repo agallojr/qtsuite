@@ -8,7 +8,7 @@ a circuit built on an old qiskit (wciscc2025) and running it on a backend using 
 import sys
 sys.path.append("wciscc2025/qlsa")
 
-#pylint: disable=wrong-import-position, invalid-name
+#pylint: disable=wrong-import-position, invalid-name, superfluous-parens
 
 from typing import Any
 
@@ -19,7 +19,7 @@ from qiskit import qpy
 from lwfm.base.Workflow import Workflow
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
-from lwfm.base.WorkflowEvent import NotificationEvent
+from lwfm.base.WorkflowEvent import JobEvent, NotificationEvent
 from lwfm.midware.LwfManager import lwfManager
 
 # some stuff that used to be built into qiskit but got abandoned...now its own project
@@ -27,7 +27,7 @@ from linear_solvers import HHL
 
 if __name__ == '__main__':
     wf = Workflow()
-    wf.setName("qt01_examples_lwfm.test_02")
+    wf.setName("qt01_examples_lwfm.test02")
     wf.setProps({"cuzReason": "for giggles"})   # arbitrary metadata about the workflow
 
     # Generate matrix and vector for linear solver for some number of qubits, then
@@ -69,13 +69,29 @@ if __name__ == '__main__':
         "shots": 1024,                  # number of runs of the circuit
         "optimization_level": 3         # agressive transpiler optimization (values: 0-3)
     }
-    # iterate over a set of target backends, run each, send an email when they finish
+    # iterate over a set of target backends, run each, send an email when they all finish
     # if not on a corporate network, add  "ibm_brisbane" to run on a real cloud backend
     # site.getSpinDriver().listComputeTypes() will show available compute types
     target_compute_types = [ "statevector_sim_aer", "matrix_product_state_sim_aer" ]
-    for target in target_compute_types:
+    outfile_list = []
+    for i, target in enumerate(target_compute_types):
+        is_last_iteration = (i == len(target_compute_types) - 1)
+
         runArgs["computeType"] = target
         status = site.getRunDriver().submit(jobDefn, wf, runArgs["computeType"], runArgs)
-        lwfManager.setEvent(NotificationEvent(status.getJobId(), JobStatus.COMPLETE,
-            lwfManager.getSiteProperties("lwfm").get("emailMe") or "",
-            f"wf {wf.getWorkflowId()}: {target}", "done!", status.getJobContext()))
+
+        # set an async handler to mine the results & notate, when the job completes
+        # note the convenient alternative syntax for calling site methods
+        outfile = f"/tmp/job_{status.getJobId()}_results.txt"
+        outfile_list.append(outfile)
+        statusEvent = lwfManager.setEvent(JobEvent(status.getJobId(), JobStatus.COMPLETE,
+            JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,
+                    [status.getJobId(), outfile]),
+            "ibm-quantum-venv", None, status.getJobContext()))
+
+        # do something special after the last iteration - send an email that the workflow is done
+        if is_last_iteration and statusEvent:
+            lwfManager.setEvent(NotificationEvent(statusEvent.getJobId(), JobStatus.COMPLETE,
+                lwfManager.getSiteProperties("lwfm").get("emailMe") or "",
+                f"wf {wf.getWorkflowId()}", f"workflow done! {outfile_list}",
+                status.getJobContext()))
