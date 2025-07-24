@@ -1,7 +1,7 @@
 # Byte-compiled / optimized / DLL files
 
 wciscc2025/
-
+models/
 
 __pycache__/
 *.py[codz]
