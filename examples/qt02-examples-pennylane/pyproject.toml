@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt02-examples-pennylane"
+version = "0.1.0"
+description = "example using pennylane for circuits, then running on IBM with lwfm"
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
+    "ibm-quantum-site@git+https://github.com/lwfm-proj/ibm-quantum-site",
+    "pennylane",
+    "pennylane-qiskit"
+    ]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88

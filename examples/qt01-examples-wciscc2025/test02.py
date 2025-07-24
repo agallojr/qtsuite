@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # and the latest qiskit libs
     site = lwfManager.getSite("ibm-quantum-venv")
 
-    # define the job to run our Python script
+    # define the job to run our circuit
     jobDefn = JobDefn(qpy_filename, JobDefn.ENTRY_TYPE_STRING)
     runArgs: dict[str,Any] = {
         "shots": 1024,                  # number of runs of the circuit
