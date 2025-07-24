@@ -1,10 +1,12 @@
 """
 Test 02: show how to run the ORNL WCISCC2025 in piece parts, separating out the 
-circuit construction from the circuit execution. This will demonstrate negotiating
-a circuit built on an old qiskit (wciscc2025) and running it on a backend using the new qiskit.
+circuit construction from the circuit execution. The circuit will be constructed with 
+an older qiskit but run on a backend using the newest. Interop of the circuits is 
+handled by QPY, since the ORNL code uses some non-Unitary gates and we can't use QASM.
 """
 
-# wciscc2025 isn't packaged as we would like, so manually put it on the path
+# we're going to use wciscc2025 directly, but it isn't packaged as we would like,
+# so manually put it on the path
 import sys
 sys.path.append("wciscc2025/qlsa")
 
@@ -25,13 +27,13 @@ from lwfm.midware.LwfManager import lwfManager
 # some stuff that used to be built into qiskit but got abandoned...now its own project
 from linear_solvers import HHL
 
+
 if __name__ == '__main__':
     wf = Workflow()
     wf.setName("qt01_examples_wciscc2025.test02")
-    wf.setProps({"cuzReason": "for giggles"})   # arbitrary metadata about the workflow
 
     # Generate matrix and vector for linear solver for some number of qubits, then
-    # make a circuit using the ORNL HHL code
+    # programmatically make a circuit using the ORNL HHL code
     N_QUBITS_MATRIX = 2
     MATRIX_SIZE = 2 ** N_QUBITS_MATRIX
     A = 1
@@ -75,12 +77,14 @@ if __name__ == '__main__':
     target_compute_types = [ "statevector_sim_aer", "matrix_product_state_sim_aer" ]
     outfile_list = []
     for i, target in enumerate(target_compute_types):
+        # on the last iteration, we'll send an email that the workflow is done
         is_last_iteration = (i == len(target_compute_types) - 1)
 
+        # run on the target backend, using the job definition and run args
         runArgs["computeType"] = target
         status = site.getRunDriver().submit(jobDefn, wf, runArgs["computeType"], runArgs)
 
-        # set an async handler to mine the results when the job completes
+        # set an async handler to mine the results and stuff them when the job completes
         # note the convenient alternative syntax for calling site methods
         outfile = f"/tmp/job_{status.getJobId()}_results.txt"
         outfile_list.append(outfile)

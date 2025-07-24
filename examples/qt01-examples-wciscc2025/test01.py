@@ -1,7 +1,7 @@
 """
 Test 01: show how to run the ORNL WCISCC2025 code as-is, with their command line
 interface, but within the lwfm framework. This is also of course a general example of
-running any command line tool as a step in an lwfm workflow. Notice a lack of quantum
+running any command line tool as a step in an lwfm workflow. Notice the lack of quantum
 import statements.
 """
 
@@ -16,17 +16,20 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 
 if __name__ == '__main__':
-    # we will run locally. ~/.lwfm/sites.toml will define this site
+    # we will run locally. ~/.lwfm/sites.toml will define this site (the "4 site pillars" of lwfm)
     site = lwfManager.getSite("local")
 
-    # define a workflow, give it some metadata about the project
+    # define a workflow, give it some personal metadata about the project
     wf = Workflow()
     wf.setName("qt01_examples_wciscc2025.test01")
     wf.setDescription("running the ORNL WCISCC2025 code as-is iteratively by qubit count")
     wf.setProps({"cuzReason": "for giggles"})
+
+    # versus the basic python logger, the lwfm logger persists the logging with the workflow
     logger.info(f"Workflow created with name: {wf.getName()}")
 
-    # define the job with the command line args & run it; iterate over qubit counts
+    # define the job with command line args; iterate running it over some qubit counts;
+    # its a shell exeucution with output to stdout
     ENTRY_POINT = "python wciscc2025/qlsa/test_linear_solver.py"
     status: Optional[JobStatus] = None
     for num_qubits in [2, 3, 4]:
@@ -37,18 +40,18 @@ if __name__ == '__main__':
 
     if status is None:
         ex = RuntimeError("Job submission failed")
-        logger.error(str(ex))  # persists to lwfm store
-        raise ex
-
-    # since its local, let's wait synchronously for the last job to finish
-    status = lwfManager.wait(status.getJobId())
-    statusList = lwfManager.getJobStatusesForWorkflow(wf.getWorkflowId())
-    if not statusList:
-        ex = RuntimeError("No job statuses found for the workflow(?)")
         logger.error(str(ex))
         raise ex
 
-    # stand-in for some "post-processing"
+    # since its local execution, let's wait synchronously for the last job to finish
+    status = lwfManager.wait(status.getJobId())
+    statusList = lwfManager.getJobStatusesForWorkflow(wf.getWorkflowId())
+    if not statusList:
+        ex = RuntimeError("No job statuses found for the workflow?")
+        logger.error(str(ex))
+        raise ex
+
+    # now let's pretend we're doing some "post-processing"
     # 1. we'll make a file, for convenience we'll name it using the workflow id
     # 2. for each job in the workflow, get the stdout it produced and write it to the file
     output_filename = f"/tmp/workflow_{wf.getWorkflowId()}_results.txt"
@@ -73,15 +76,7 @@ if __name__ == '__main__':
             output_file.write("\n")
 
     # 3. tag the file with some metadata for later finding
-    lwfManager.notatePut(output_filename, wf.getWorkflowId(), 
+    lwfManager.notatePut(output_filename, wf.getWorkflowId(),
                          {  "description": "Workflow results",
                             "cuzReason": "for more giggles" })
     logger.info(f"Results file {output_filename}")
-
-    # # let's show we can find it again
-    # metasheets = lwfManager.find({"workflowId": wf.getWorkflowId()})
-    # if not metasheets:
-    #     logger.warning("No metadata sheets found for the workflow")
-    # else:
-    #     for sheet in metasheets:
-    #         logger.info(f"Found metadata sheet: {sheet}")
