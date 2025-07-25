@@ -29,8 +29,7 @@ from linear_solvers import HHL
 
 
 if __name__ == '__main__':
-    wf = Workflow()
-    wf.setName("qt01_examples_wciscc2025.test02")
+    wf = Workflow("qt01_examples_wciscc2025.test02")
 
     # Generate matrix and vector for linear solver for some number of qubits, then
     # programmatically make a circuit using the ORNL HHL code

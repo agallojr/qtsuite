@@ -25,9 +25,7 @@ from lwfm.midware.LwfManager import lwfManager
 
 
 if __name__ == '__main__':
-    wf = Workflow()
-    wf.setName("HHL Circuit Example")
-    wf.setDescription("Example of running HHL circuit with a CFD case file.")
+    wf = Workflow("HHL Circuit Example", "Example of running HHL circuit with a CFD case file.")
 
     # we'll run the first part of the ORNL instructions as is, here, in a sandbox
     # using their library dependencies

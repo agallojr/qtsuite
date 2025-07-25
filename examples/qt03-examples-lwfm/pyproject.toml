@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt03-examples-lwfm"
+version = "0.1.0"
+description = "lwfm-specific examples"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
+]
+
+[tool.black]
+line-length = 88
+[tool.ruff]
+line-length = 88
+
+

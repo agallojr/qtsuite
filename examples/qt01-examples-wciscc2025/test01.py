@@ -20,8 +20,7 @@ if __name__ == '__main__':
     site = lwfManager.getSite("local")
 
     # define a workflow, give it some personal metadata about the project
-    wf = Workflow()
-    wf.setName("qt01_examples_wciscc2025.test01")
+    wf = Workflow("qt01_examples_wciscc2025.test01")
     wf.setDescription("running the ORNL WCISCC2025 code as-is iteratively by qubit count")
     wf.setProps({"cuzReason": "for giggles"})
 
