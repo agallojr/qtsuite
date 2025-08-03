@@ -161,7 +161,7 @@ wheels = [
 [[package]]
 name = "lwfm"
 version = "0.1.0"
-source = { git = "https://github.com/lwfm-proj/lwfm?rev=develop#7a9b47350781b2bfb51dc17f7cf684a76b7522c2" }
+source = { git = "https://github.com/lwfm-proj/lwfm?rev=develop#c4f35d121b771c2abedba6b6c34e39b8215f3e6e" }
 dependencies = [
     { name = "dill" },
     { name = "flask" },

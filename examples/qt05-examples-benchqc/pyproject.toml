@@ -3,27 +3,24 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qt04-examples-sqd"
+name = "qt05-examples-benchqc"
 version = "0.1.0"
-description = "examples"
+description = "example using benchqc to compare quantum and classical molecular calculations"
 readme = "README.md"
 requires-python = ">=3.10"
+
 dependencies = [
     "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
-    "qiskit>=2.0",
-    "qiskit-ibm-runtime",
-    "qiskit_qasm3_import",
-    "qiskit_aer",
-    "pyscf>=2.10.0",
-    "numpy",
-    "qiskit_addon_sqd",
-    "matplotlib",
-    "scipy>=1.15.0,<1.17.0",
-]
+    "numpy==1.23.5",
+    "jarvis-tools",
+    "qiskit==0.43.1",
+    "qiskit_nature==0.6.2",
+    "pyscf",
+    "qiskit-aer==0.12.0",
+    ]
 
 [tool.black]
 line-length = 88
+
 [tool.ruff]
 line-length = 88
-
-
