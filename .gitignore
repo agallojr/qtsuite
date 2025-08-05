@@ -2,6 +2,8 @@
 
 wciscc2025/
 models/
+materials/
+*/all_dependencies.txt
 
 __pycache__/
 *.py[codz]
