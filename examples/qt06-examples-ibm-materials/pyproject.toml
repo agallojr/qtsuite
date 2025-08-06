@@ -7,7 +7,7 @@ name = "qt06-examples-ibm-materials"
 version = "0.1.0"
 description = "example using ibm materials foundation models"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11,<3.12"
 
 # Declare that dependencies will also come from setup.py
 dynamic = ["dependencies"]
