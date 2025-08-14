@@ -16,8 +16,6 @@ from lwfm.base.WorkflowEvent import JobEvent, MetadataEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.midware.LwfManager import lwfManager
 
-from workflow_tree_visualizer import display_workflow_tree
-
 
 
 if __name__ == "__main__":
@@ -168,11 +166,6 @@ if __name__ == "__main__":
 
     workflow_data = lwfManager.dumpWorkflow(wf.getWorkflowId())
     print("\n* out99: Workflow dump structure:" + json.dumps(workflow_data, indent=2, default=str))
-
-    # display workflow tree visualization
-    print("\n* out100: ", end="")
-    display_workflow_tree(workflow_data)
-
     print("\n")
 
     # ****************************************************************************

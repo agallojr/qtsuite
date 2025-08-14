@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt07-examples-quantumreservoirpy"
+version = "0.1.0"
+description = "quantumreservoirpy examples"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
+    "tqdm",
+    "quantumreservoirpy"
+]
+
+[tool.black]
+line-length = 88
+[tool.ruff]
+line-length = 88
+
+
