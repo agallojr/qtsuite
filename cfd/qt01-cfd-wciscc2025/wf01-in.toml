@@ -1,0 +1,23 @@
+
+[global]
+savedir = "/tmp/wf01"
+fileprefix = "wf01"
+savefilename = "/tmp/wf01/wf01_pressure_nx2_ny3_metadata.pkl"
+filename_pressure = "/tmp/wf01/wf01_pressure_nx2_ny3_metadata.pkl"
+
+[test01]
+NQ_MATRIX = 2
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+L = 1
+D = 1
+mu = 1
+rho = 1
+nx = 2
+ny = 3
+var = "pressure"
+
+
+

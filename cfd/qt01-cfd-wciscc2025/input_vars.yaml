@@ -1,0 +1,25 @@
+
+case_name: $case_name
+NQ_MATRIX: $NQ_MATRIX
+
+
+P_in: $P_in            # pressure in - e.g. 200
+P_out: $P_out          # pressure out - e.g. 0
+U_top: $U_top          # velocity at top - e.g. 0
+U_bottom: $U_bottom    # velocity at bottom - e.g. 0
+L: $L                  # length of channel - e.g. 1
+D: $D                  # width/height of channel - e.g. 1
+mu: $mu                # fluid viscosity - e.g. 1
+rho: $rho              # fluid density - e.g. 1
+nx: $nx                # number of grid points in the x (horizontal) direction - e.g. 2
+ny: $ny                # number of grid points in the y (vertical/span-wise) direction - e.g. 3
+var: $var              # which variable to solve for? pressure or velocity - e.g. pressure
+
+
+savedir: $savedir
+fileprefix: $fileprefix
+savefilename: "$savedir/$fileprefix_$var_nx$nx_ny$ny"
+filename_pressure: "$savedir/$fileprefix_pressure_nx$nx_ny$ny_metadata.pkl" 
+
+
+

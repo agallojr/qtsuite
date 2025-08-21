@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 
+.DS_STORE
 wciscc2025/
 models/
 materials/
