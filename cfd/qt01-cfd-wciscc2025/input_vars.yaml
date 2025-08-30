@@ -1,5 +1,5 @@
 
-case_name: "$case_name"
+case_name: $case
 NQ_MATRIX: $NQ_MATRIX
 
 
@@ -18,8 +18,8 @@ var: "$var"
 
 savedir: "$savedir"
 fileprefix: ""
-savefilename: "$savedir/$case_name"
-filename_pressure: "$savedir/$case_name_metadata.pkl" 
+savefilename: "$savedir/$case"
+filename_pressure: "$savedir/$case_metadata.pkl" 
 
 
 
