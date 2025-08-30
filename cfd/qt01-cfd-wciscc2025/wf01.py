@@ -49,6 +49,9 @@ if __name__ == '__main__':
     # modify the output directory name to include the workflow ID
     globalArgs["savedir"] = globalArgs["savedir"] + "/" + str(wf.getWorkflowId())
 
+    # warm up sandboxes we use
+    lwfManager.updateSite("ibm-quantum-venv")
+
     keepSaveDir = globalArgs["savedir"]
     # for each case in the workflow toml
     for caseId, caseArgs in ((k, v) for k, v in data.items() if k != "global"):
