@@ -1,0 +1,26 @@
+
+# values to be used for all test cases
+[global]
+savedir = "/tmp/lwfm/wf00"
+P_in = 200          # inlet pressure
+P_out = 0           # outlet pressure
+U_top = 0           # top velocity
+U_bottom = 0        # bottom velocity
+L = 1               # length
+D = 1               # depth
+mu = 1              # dynamic viscosity
+rho = 1             # fluid density
+
+# *****************************************************************************
+# test cases
+
+[test01]
+case = "sample-tridiag"
+NQ_MATRIX = 4
+nx = 4
+ny = 4
+var = "pressure"
+
+
+
+

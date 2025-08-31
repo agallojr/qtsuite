@@ -1,0 +1,25 @@
+
+# values to be used for all test cases
+[global]
+savedir = "/tmp/lwfm/wf01"
+P_in = 200          # inlet pressure
+P_out = 0           # outlet pressure
+U_top = 0           # top velocity
+U_bottom = 0        # bottom velocity
+L = 100             # length
+D = 100             # depth
+mu = 1              # dynamic viscosity
+rho = 1             # fluid density
+
+# *****************************************************************************
+# test cases
+
+[test01]
+case = "hele-shaw"
+NQ_MATRIX = 4
+nx = 4
+ny = 4
+var = "pressure"
+
+
+
