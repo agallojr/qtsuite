@@ -4,16 +4,26 @@ What this script shows (Qiskit 2.x + Aer):
 1. Build an n‑qubit GHZ state circuit (optionally with measurements for sampling).
 2. Obtain a sampling ("quasi") distribution by running the measured circuit on an
     `AerSimulator` (shots based) and normalising counts.
-3. Compute analytic expectation values of Pauli observables directly from the
+3. Compute expectation values from the quasi distribution. 
+   An expectation value <Z_i> is computed as:
+
+   <Z_i> = sum_{x} ( (-1)^{x_i} * P(x) )
+
+   where P(x) is the probability of measuring bitstring x, and x_i is the value of the
+   i-th bit in x.
+
+4. Compute analytic expectation values of Pauli observables directly from the
     ideal statevector constructed with `Statevector.from_instruction` (i.e. *without*
     using EstimatorV2). This mirrors what an Estimator primitive would return on a
     noiseless statevector backend while keeping full control in user code.
 
 Observables reported:
-  <Z0>, <Z_{n-1}>, and the full parity <Z⊗n> (written as <Z...> in output).
+    <Z0>, <Z_{n-1}>, pairwise <Z0Z1>, and the full parity <Z⊗n> (written as <Z...>).
 
-For an ideal GHZ (|0…0> + |1…1>)/√2 we expect:
-  <Z0> ≈ 0, <Z_{n-1}> ≈ 0, parity <Z⊗n> = +1.
+For an ideal GHZ (|0…0> + |1…1>)/√2 we expect for n ≥ 2:
+    <Zk> = 0 for any single qubit k
+    <ZiZj> = +1 for any pair i,j
+    Parity <Z⊗n> = 1 if n is even else 0 (because eigenvalue on |1…1> is (-1)^n)
 
 Note on design: Earlier iterations used SamplerV2 / EstimatorV2 primitives. They have
 been removed for clarity here; the example intentionally demonstrates the *equivalent*
@@ -73,43 +83,46 @@ def _extract_quasi_from_samples(result) -> dict:
     return quasi
 
 
-def _expectations_from_quasi(quasi: dict) -> tuple[float, float, float]:
-    """Compute <Z0>, <Z_{n-1}>, and global parity <Z0 Z1 ... Z_{n-1}>.
+def _expectations_from_quasi(quasi: dict) -> tuple[float, float, float, float]:
+    """Compute <Z0>, <Z_{n-1}>, pairwise <Z0Z1>, and global parity <Z0 Z1 ... Z_{n-1}>.
 
-    Assumes bitstrings are little-endian (rightmost bit -> qubit 0). For a GHZ state
-    (|0...0> + |1...1>)/sqrt(2), we expect <Z0>=0, <Z_{n-1}>=0, and global parity = +1.
+    Bitstrings are interpreted little-endian (rightmost bit -> qubit 0).
     """
     z_first = 0.0
     z_last = 0.0
+    z_pair = 0.0
     z_global = 0.0
     for bitstr, p in quasi.items():
         if not bitstr:
             continue
-        # Normalize length (pad leading zeros on the left for missing high qubits)
         s = bitstr
-        # Qubit 0 is rightmost char
+        # Single-qubit Z eigenvalues for first (qubit 0) and last (qubit n-1)
         b0 = s[-1]
         blast = s[0]
         v_first = 1 if b0 == '0' else -1
         v_last = 1 if blast == '0' else -1
-        # Global parity: product of Z eigenvalues across all qubits
+        # Pairwise Z0Z1 if at least two qubits present
+        if len(s) >= 2:
+            b1 = s[-2]
+            v1 = 1 if b1 == '0' else -1
+            z_pair += (v_first * v1) * p
+        # Global parity
         prod = 1
         for c in s:
             prod *= (1 if c == '0' else -1)
         z_first += v_first * p
         z_last += v_last * p
         z_global += prod * p
-    return z_first, z_last, z_global
+    return z_first, z_last, z_pair, z_global
 
 
-def demo_sampler(circuit_with_meas: QuantumCircuit, sim: AerSimulator, shots: int = 1024):
+def demo_sampler(tcirc: QuantumCircuit, sim: AerSimulator, shots: int = 1024):
     """
     measurement-based
     we could have used SamplerV2 for this task which is wired into the Aer simulator,
     but we'll uses an explicit reference to the sim which comes pre-configured.
     """
     # transpile for this configured simulator
-    tcirc = transpile(circuit_with_meas, sim, optimization_level=0)
     job = sim.run(tcirc, shots=shots)
     result = job.result()
     quasi = _extract_quasi_from_samples(result)
@@ -118,16 +131,18 @@ def demo_sampler(circuit_with_meas: QuantumCircuit, sim: AerSimulator, shots: in
     for bitstr, prob in sorted(quasi.items(), key=lambda kv: -kv[1]):
         print(f"  {bitstr:>2}        {prob * shots:7.1f}    {prob:10.6f}")
 
-    p00 = quasi.get('00', 0.0)
-    p11 = quasi.get('11', 0.0)
-    print(f"Correlation mass P(00)+P(11): {p00 + p11:.3f}")
+    total_mass = sum(quasi.values())
+    print(f"Total probability: {total_mass:.6f}")
 
-    z0, z1, z0z1 = _expectations_from_quasi(quasi)
-    print(f"Sampler-derived expectations: <Z0>={z0:.3f} <Z1>={z1:.3f} <Z0Z1>={z0z1:.3f}")
-    return quasi, (z0, z1, z0z1)
+    z0, z_last, z_pair, z_parity = _expectations_from_quasi(quasi)
+    print(
+        f"Sampler-derived expectations: <Z0>={z0:.3f} <Z{tcirc.num_qubits-1}>={z_last:.3f} "
+        f"<Z0Z1>={z_pair:.3f} <Z...>={z_parity:.3f}\n"
+    )
+    return quasi, (z0, z_last, z_pair, z_parity)
 
 
-def demo_estimator(circuit: QuantumCircuit, sim: AerSimulator):
+def demo_estimator(tcirc: QuantumCircuit, sim: AerSimulator):
     """Compute expectation values by executing the circuit on the provided simulator.
 
     We explicitly run the (unmeasured) circuit on the `AerSimulator` in statevector
@@ -136,8 +151,6 @@ def demo_estimator(circuit: QuantumCircuit, sim: AerSimulator):
     close to what an Estimator-backed flow would look like while still offering full
     backend control (e.g. future insertion of noise models or dynamic circuits).
     """
-    # Transpile (light touch) to align with backend basis / coupling map.
-    tcirc = transpile(circuit, sim, optimization_level=0)
     # Append an explicit save instruction so Result definitely includes the statevector.
     tcirc.append(SaveStatevector(num_qubits=tcirc.num_qubits), list(range(tcirc.num_qubits)))
     job = sim.run(tcirc)
@@ -146,21 +159,35 @@ def demo_estimator(circuit: QuantumCircuit, sim: AerSimulator):
     sv = Statevector(res.get_statevector(0))
 
     # Build Pauli operators
-    pauli_first = ['I'] * circuit.num_qubits
+    pauli_first = ['I'] * tcirc.num_qubits
     pauli_first[-1] = 'Z'
     z_first = SparsePauliOp(''.join(pauli_first))
 
-    pauli_last = ['I'] * circuit.num_qubits
+    pauli_last = ['I'] * tcirc.num_qubits
     pauli_last[0] = 'Z'
     z_last = SparsePauliOp(''.join(pauli_last))
 
-    z_global = SparsePauliOp('Z' * circuit.num_qubits)
-    labels = ["<Z0>", f"<Z{circuit.num_qubits-1}>", "<Z...>"]
+    z_global = SparsePauliOp('Z' * tcirc.num_qubits)
+    # Pairwise Z0Z1 operator (if >=2 qubits)
+    if tcirc.num_qubits >= 2:
+        pauli_pair = ['I'] * tcirc.num_qubits
+        pauli_pair[-1] = 'Z'  # qubit 0
+        pauli_pair[-2] = 'Z'  # qubit 1
+        z_pair = SparsePauliOp(''.join(pauli_pair))
+    else:  # pragma: no cover - degenerate case not expected here
+        z_pair = None
+
+    labels = ["<Z0>", f"<Z{tcirc.num_qubits-1}>", "<Z0Z1>", "<Z...>"]
 
     def expval(op: SparsePauliOp) -> float:
         return float((sv.expectation_value(op)).real)
 
-    values = [expval(z_first), expval(z_last), expval(z_global)]
+    val_z0 = expval(z_first)
+    val_zlast = expval(z_last)
+    val_pair = expval(z_pair) if z_pair is not None else 0.0
+    val_parity = expval(z_global)
+    values = (val_z0, val_zlast, val_pair, val_parity)
+    print("Estimator:")
     for label, value in zip(labels, values):
         print(f"  {label:7}  {value: .6f}")
     return values
@@ -175,31 +202,34 @@ def main(num_qubits: int, method: str, seed: int) -> None:
 
     # IBM (Aer) simulator running locally with deterministic seed
     sim = AerSimulator(method=method, seed_simulator=seed)
+    t_circuit = transpile(circuit, sim, optimization_level=0)
+    t_circuit_meas = transpile(circuit_meas, sim, optimization_level=0)
 
     # get results using the Sampler
-    quasi, sampler_expectations = demo_sampler(circuit_meas, sim, shots=1024)
-    # Simple sanity: ensure probability mass ~1.0 (tolerate tiny numerical drift)
+    quasi, sampler_expectations = demo_sampler(t_circuit_meas, sim, shots=1024)
+    # Simple sanity check: ensure probability mass ~1.0 (tolerate tiny numerical drift)
     total_prob = abs(sum(quasi.values()) - 1.0)
     if total_prob > 1e-6:
         print(f"[WARN] Sampler quasi distribution not normalized (Δ={total_prob:.2e})")
 
     # get results using the Estimator
-    est_values = demo_estimator(circuit, sim)
+    est_values = demo_estimator(t_circuit, sim)
 
     # Comparison table
-    z0_s, z1_s, zz_s = sampler_expectations
-    z0_e, z1_e, zz_e = est_values
+    z0_s, z_last_s, zpair_s, zpar_s = sampler_expectations
+    z0_e, z_last_e, zpair_e, zpar_e = est_values
     print("\n=== Expectation Comparison (Sampler vs Estimator) ===")
     print("Observable        Sampler    Estimator   |Diff|")
     def line(name, sv, ev):
         diff = abs(sv - ev)
         print(f"{name:15} {sv:8.4f}  {ev:9.4f}      {diff:6.4f}")
     line('<Z0>', z0_s, z0_e)
-    line(f'<Z{circuit.num_qubits-1}>', z1_s, z1_e)
-    line('<Z...>', zz_s, zz_e)
+    line(f'<Z{circuit.num_qubits-1}>', z_last_s, z_last_e)
+    line('<Z0Z1>', zpair_s, zpair_e)
+    line('<Z...>', zpar_s, zpar_e)
 
     print("\n")
 
 
 if __name__ == '__main__':
-    main(3, 'statevector', 42)
+    main(6, 'statevector', 42)
