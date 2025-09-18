@@ -1,0 +1,68 @@
+
+[global]
+savedir = "/tmp/lwfm/qt04-sqd-test01"
+input_fcidump = "n2_fci.txt"      # description of N2 molecule in FCIDUMP format
+num_orbitals = 16                 # Number of orbitals (active space)
+spin_sq = 0                       # Target S(S+1) value; 0 corresponds to singlet
+open_shell = true                 # open-shell system (true) or closed-shell (false)
+num_alpha = 5                     # Number of alpha (spin-up) electrons (active space)
+num_beta = 5                      # Number of beta (spin-down) electrons (active space)
+
+rng_seed = 24                     # Seed for NumPy RNG
+num_batches = 1                   # # of subspace batches per iteration to diagonalize
+exact_energy_ref = -109.04667
+show_plot = true
+
+[case01]
+samples_per_batch = 500           # # of configurations (samples) per batch after sub-sampling  
+iterations_count = 5              # Configuration-recovery iterations (outer loop length)
+
+[case02]
+samples_per_batch = 1000          # # of configurations (samples) per batch after sub-sampling  
+iterations_count = 5              # Configuration-recovery iterations (outer loop length)
+
+[case03]
+samples_per_batch = 500           # # of configurations (samples) per batch after sub-sampling  
+iterations_count = 15             # Configuration-recovery iterations (outer loop length)
+
+[case04]
+samples_per_batch = 1000          # # of configurations (samples) per batch after sub-sampling  
+iterations_count = 15             # Configuration-recovery iterations (outer loop length)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# **********************************************************************************
+#[case02]
+## make your own molecule w pyscf
+#atom = 'N 0 0 0; N 0 0 1.1'       # N2 molecule
+#basis = 'cc-pVDZ'                 # basis set
+#symmetry = "Dooh"                 # symmetry
+#spin = 0                          # Singlet state
+#charge = 0                        # Charge of the molecule
+#freeze_active = 2                 # Number of orbitals to freeze
+#dump_integrals = true             # Whether to dump integrals to FCIDUMP file
+#spin_sq = 0                       # Target S(S+1) value; 0 corresponds to singlet
+#open_shell = false                # open-shell system (true) or closed-shell (false)
+#num_alpha = 5                     # Number of alpha (spin-up) electrons (active space)
+#num_beta = 5                      # Number of beta (spin-down) electrons (active space)
+#exact_energy_ref = -109.22690201485733
+#show_plot = true
+
+
+
+
+

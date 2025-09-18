@@ -7,9 +7,8 @@ name = "qt04-examples-sqd"
 version = "0.1.0"
 description = "examples"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
-    "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
     "qiskit>=2.0",
     "qiskit-ibm-runtime",
     "qiskit_qasm3_import",
@@ -19,7 +18,12 @@ dependencies = [
     "qiskit_addon_sqd",
     "matplotlib",
     "scipy>=1.15.0,<1.17.0",
+    "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
+    "toml"
 ]
+
+[tool.setuptools]
+packages = {find = {where = ["."]}}
 
 [tool.black]
 line-length = 88
