@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # IBM Qiskit addon library for SQD
+from qiskit import QuantumRegister, QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
 from qiskit_addon_sqd.counts import generate_counts_uniform
 from qiskit_addon_sqd.counts import counts_to_arrays
 from qiskit_addon_sqd.configuration_recovery import recover_configurations
@@ -29,6 +31,69 @@ from qiskit_addon_sqd.fermion import bitstring_matrix_to_ci_strs, solve_fermion
 
 from lwfm.base.Workflow import Workflow
 from lwfm.midware.LwfManager import lwfManager, logger
+
+
+def get_counts_from_hf_circuit(num_orbitals: int, num_elec_a: int, num_elec_b: int,
+        seed: int, backend):
+    """
+    Get counts from Hartree-Fock state with small perturbations
+    """
+    qubits = QuantumRegister(2 * num_orbitals, name="q")
+    circuit = QuantumCircuit(qubits)
+
+    # Manually prepare Hartree-Fock state (first num_elec_a + num_elec_b qubits set to |1>)
+    total_electrons = num_elec_a + num_elec_b
+    for i in range(total_electrons):
+        circuit.x(i)
+
+    # Add small random rotations to break symmetry
+    np.random.seed(seed)
+    for i in range(2 * num_orbitals):
+        if np.random.random() < 0.3:  # Only rotate 30% of qubits
+            circuit.ry(np.random.uniform(0, np.pi/8), i)  # Very small rotations
+
+    circuit.measure_all()
+
+    # Transpile without coupling map constraints
+    transpiled_circuit = transpile(circuit, backend=backend, optimization_level=1)
+
+    # Run on Aer backend
+    counts = backend.run(transpiled_circuit, shots=10_000).result().get_counts()
+
+    return counts
+
+
+
+# def get_counts_from_simple_circuit(num_orbitals: int, num_elec_a: int, num_elec_b: int,
+#                                    seed: int, backend):
+#     """
+#     Get counts from a minimal quantum circuit (Hartree-Fock + minimal perturbation)
+#     """
+
+#     # Create quantum circuit
+#     qubits = QuantumRegister(2 * num_orbitals, name="q")
+#     circuit = QuantumCircuit(qubits)
+
+#     # Manually prepare Hartree-Fock state (first num_elec_a + num_elec_b qubits set to |1>)
+#     total_electrons = num_elec_a + num_elec_b
+#     for i in range(total_electrons):
+#         circuit.x(i)
+
+#     # Add minimal perturbation - just a few rotations
+#     np.random.seed(seed)  # For reproducibility
+
+#     # Only rotate a few qubits with very small angles
+#     for i in range(min(4, 2 * num_orbitals)):  # Only first 4 qubits
+#         if np.random.random() < 0.5:  # 50% chance
+#             circuit.ry(np.random.uniform(0, np.pi/16), i)  # Very small rotations
+#     circuit.measure_all()
+
+#     # Transpile without coupling map constraints
+#     transpiled_circuit = transpile(circuit, backend=backend, optimization_level=1)
+
+#     # Run on Aer backend
+#     counts = backend.run(transpiled_circuit, shots=10_000).result().get_counts()
+#     return counts
 
 
 def run_sqd_pipeline(
@@ -44,6 +109,7 @@ def run_sqd_pipeline(
     num_batches: int,
     samples_per_batch: int,
     rng_seed: int | None = 42,
+    synthetic_counts: bool = False,
     ):
     """
     Run the SQD pipeline and return data needed for plotting.
@@ -62,17 +128,14 @@ def run_sqd_pipeline(
         Reference energy used to compute errors.
     """
 
-    # Generate synthetic counts
-    # TODO: replace with real counts from hardware
-    # from qiskit_ibm_runtime import SamplerV2 as Sampler
-
-    # sampler = Sampler(mode=backend)
-    # job = sampler.run([isa_circuit], shots=10_000)
-    # primitive_result = job.result()
-    # pub_result = primitive_result[0]
-    # counts = pub_result.data.meas.get_counts()
     rng = np.random.default_rng(rng_seed)
-    counts = generate_counts_uniform(10_000, num_orbitals * 2, rand_seed=rng)
+    if synthetic_counts:
+        counts = generate_counts_uniform(10_000, num_orbitals * 2, rand_seed=rng)
+    else:
+        counts = get_counts_from_hf_circuit(num_orbitals, num_alpha, num_beta,
+            rng_seed, AerSimulator(
+                method='extended_stabilizer'
+            ))
 
     # Convert counts into bitstring and probability arrays
     bitstring_matrix_full, probs_array_full = counts_to_arrays(counts)
@@ -323,7 +386,8 @@ if __name__ == '__main__':
             iterations_count = caseArgs['iterations_count'],
             num_batches = caseArgs['num_batches'],
             samples_per_batch = caseArgs['samples_per_batch'],
-            rng_seed = caseArgs['rng_seed']
+            rng_seed = caseArgs['rng_seed'],
+            synthetic_counts = caseArgs['synthetic_counts'],
         )
         energy_hists[caseId] = energy_hist
         iterations[caseId] = caseArgs['iterations_count']
@@ -336,5 +400,5 @@ if __name__ == '__main__':
         iterations=iterations, # for x-axis
         exact_energies=exact_energies,    # reference exact energy
         output_path=output_path,            # where to save the generated figure
-        show_plot=caseArgs['show_plot']
+        show_plot=globalArgs['show_plot']
     )

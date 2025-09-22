@@ -1,0 +1,30 @@
+
+[global]
+savedir = "/tmp/lwfm/qt01-mat-sqd"
+input_fcidump = "n2_fci.txt"      # description of N2 molecule in FCIDUMP format
+num_orbitals = 16                 # Number of orbitals (active space)
+spin_sq = 0                       # Target S(S+1) value; 0 corresponds to singlet
+open_shell = true                 # open-shell system (true) or closed-shell (false)
+num_alpha = 5                     # Number of alpha (spin-up) electrons (active space)
+num_beta = 5                      # Number of beta (spin-down) electrons (active space)
+
+rng_seed = 24                     # Seed for NumPy RNG
+iterations_count = 15             # Configuration-recovery iterations (outer loop length)
+exact_energy_ref = -109.04667
+show_plot = true
+synthetic_counts = false
+
+
+
+[case-1000-1]
+samples_per_batch = 1000           # of configurations (samples) per batch after sub-sampling  
+num_batches = 1                    # of subspace batches per iteration to diagonalize
+
+[case-1000-2]
+samples_per_batch = 1000          # of configurations (samples) per batch after sub-sampling  
+num_batches = 2                   # of subspace batches per iteration to diagonalize
+
+[case-1000-3]
+samples_per_batch = 1000          # of configurations (samples) per batch after sub-sampling  
+num_batches = 3                   # of subspace batches per iteration to diagonalize
+
