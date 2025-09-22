@@ -63,9 +63,11 @@ Varying #samples,batch=1  |  Samples=1000, vary #batches
 Next steps
 =====
 
-1. Test on real quantum hardware with a circuit (e.g. based on local unitary cluster Jastrow ansatz) informed by the specific molecule and quantum hardware connection topology.
-2. Test compared to standard VQE for solving the same problem.
-3. Test with a modified VQE such as HiVQE from Qunova (IBM Qiskit function).
+1. Work with chemistry SME to choose a very small (helium?) molecular case to apply SQD on simulator.
+2. Test on real quantum hardware with a circuit (e.g. based on local unitary cluster Jastrow ansatz) informed by the specific molecule and quantum hardware connection topology.
+3. Test compared to standard VQE for solving the same problem.
+4. Test with a modified VQE such as HiVQE from Qunova (IBM Qiskit function).
+5. Apply to Anderson impurity model, but again a large number of qubits is required, beyond simulators (https://quantum.cloud.ibm.com/docs/en/tutorials/sample-based-krylov-quantum-diagonalization).
 
 
 Code
