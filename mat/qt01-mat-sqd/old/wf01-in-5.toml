@@ -1,0 +1,52 @@
+
+[global]
+savedir = "/tmp/lwfm/qt01-mat-sqd"
+input_fcidump = "wf01_n2_fci.txt" # description of N2 molecule in FCIDUMP format
+num_orbitals = 16                 # Number of orbitals (active space)
+spin_sq = 0                       # Target S(S+1) value; 0 corresponds to singlet
+open_shell = false                # open-shell system (true) or closed-shell (false)
+num_alpha = 5                     # Number of alpha (spin-up) electrons (active space)
+num_beta = 5                      # Number of beta (spin-down) electrons (active space)
+
+rng_seed = 24                     # Seed for NumPy RNG
+iterations_count = 5             # Configuration-recovery iterations (outer loop length)
+exact_energy_ref = -109.04667
+show_plot = true
+#samples_per_batch = 500         # # of configurations (samples) per batch after sub-sampling  
+#num_batches = 1                   # # of subspace batches per iteration to diagonalize
+synthetic_counts = true
+
+
+
+[case-100-1]
+samples_per_batch = 100           # # of configurations (samples) per batch after sub-sampling  
+num_batches = 1                   # # of subspace batches per iteration to diagonalize
+
+[case-500-1]
+samples_per_batch = 500           # # of configurations (samples) per batch after sub-sampling  
+num_batches = 1                   # # of subspace batches per iteration to diagonalize
+
+[case-1000-1]
+samples_per_batch = 1000          # # of configurations (samples) per batch after sub-sampling  
+num_batches = 1                   # # of subspace batches per iteration to diagonalize
+
+[case-2000-1]
+samples_per_batch = 2000          # # of configurations (samples) per batch after sub-sampling  
+num_batches = 1                   # # of subspace batches per iteration to diagonalize
+
+[case-5000-1]
+samples_per_batch = 5000          # # of configurations (samples) per batch after sub-sampling  
+num_batches = 1                   # # of subspace batches per iteration to diagonalize
+
+
+
+
+#[case-synth]
+#synthetic_counts = true
+
+#[case-real]
+#synthetic_counts = false
+
+
+
+

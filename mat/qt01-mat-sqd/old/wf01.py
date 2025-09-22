@@ -15,10 +15,12 @@ import sys
 
 # pyscf - python module for quantum chemistry - https://github.com/pyscf/pyscf
 from pyscf import ao2mo, tools
-
 import matplotlib.pyplot as plt
 
 import numpy as np
+
+from qiskit import QuantumCircuit, QuantumRegister
+from qiskit_aer import AerSimulator
 
 # IBM Qiskit addon library for SQD
 from qiskit_addon_sqd.counts import generate_counts_uniform
@@ -31,7 +33,74 @@ from lwfm.base.Workflow import Workflow
 from lwfm.midware.LwfManager import lwfManager, logger
 
 
+def get_counts_from_hf_circuit(num_orbitals: int, num_elec_a: int, num_elec_b: int, backend):
+    """
+    Get counts from Hartree-Fock state with small perturbations
+    """
+    qubits = QuantumRegister(2 * num_orbitals, name="q")
+    circuit = QuantumCircuit(qubits)
+
+    # Manually prepare Hartree-Fock state (first num_elec_a + num_elec_b qubits set to |1>)
+    total_electrons = num_elec_a + num_elec_b
+    for i in range(total_electrons):
+        circuit.x(i)
+
+    # Add small random rotations to break symmetry
+    np.random.seed(42)
+    for i in range(2 * num_orbitals):
+        if np.random.random() < 0.3:  # Only rotate 30% of qubits
+            circuit.ry(np.random.uniform(0, np.pi/8), i)  # Very small rotations
+
+    circuit.measure_all()
+
+    # Transpile without coupling map constraints
+    from qiskit import transpile
+    transpiled_circuit = transpile(circuit, backend=None, optimization_level=0)
+    
+    # Run on Aer backend
+    counts = backend.run(transpiled_circuit, shots=10_000).result().get_counts()
+
+    return counts
+
+
+
+def get_counts_from_simple_circuit(num_orbitals: int, num_elec_a: int, num_elec_b: int,
+                                   backend):
+    """
+    Get counts from a minimal quantum circuit (Hartree-Fock + minimal perturbation)
+    """
+
+    # Create quantum circuit
+    qubits = QuantumRegister(2 * num_orbitals, name="q")
+    circuit = QuantumCircuit(qubits)
+
+    # Manually prepare Hartree-Fock state (first num_elec_a + num_elec_b qubits set to |1>)
+    total_electrons = num_elec_a + num_elec_b
+    for i in range(total_electrons):
+        circuit.x(i)
+
+    # Add minimal perturbation - just a few rotations
+    np.random.seed(42)  # For reproducibility
+
+    # Only rotate a few qubits with very small angles
+    for i in range(min(4, 2 * num_orbitals)):  # Only first 4 qubits
+        if np.random.random() < 0.5:  # 50% chance
+            circuit.ry(np.random.uniform(0, np.pi/16), i)  # Very small rotations
+
+    circuit.measure_all()
+
+    # Transpile without coupling map constraints
+    from qiskit import transpile
+    transpiled_circuit = transpile(circuit, backend=None, optimization_level=0)
+    
+    # Run on Aer backend
+    counts = backend.run(transpiled_circuit, shots=10_000).result().get_counts()
+
+    return counts
+
+
 def run_sqd_pipeline(
+    backend,
     num_orbitals: int,
     core_hamiltonian: np.ndarray,
     electron_repulsion_integrals: np.ndarray,
@@ -44,6 +113,7 @@ def run_sqd_pipeline(
     num_batches: int,
     samples_per_batch: int,
     rng_seed: int | None = 42,
+    synthetic_counts: bool = False,
     ):
     """
     Run the SQD pipeline and return data needed for plotting.
@@ -62,17 +132,11 @@ def run_sqd_pipeline(
         Reference energy used to compute errors.
     """
 
-    # Generate synthetic counts
-    # TODO: replace with real counts from hardware
-    # from qiskit_ibm_runtime import SamplerV2 as Sampler
-
-    # sampler = Sampler(mode=backend)
-    # job = sampler.run([isa_circuit], shots=10_000)
-    # primitive_result = job.result()
-    # pub_result = primitive_result[0]
-    # counts = pub_result.data.meas.get_counts()
-    rng = np.random.default_rng(rng_seed)
-    counts = generate_counts_uniform(10_000, num_orbitals * 2, rand_seed=rng)
+    if synthetic_counts:
+        rng = np.random.default_rng(rng_seed)
+        counts = generate_counts_uniform(10_000, num_orbitals * 2, rand_seed=rng)
+    else:
+        counts = get_counts_from_simple_circuit(num_orbitals, num_alpha, num_beta, backend)
 
     # Convert counts into bitstring and probability arrays
     bitstring_matrix_full, probs_array_full = counts_to_arrays(counts)
@@ -98,7 +162,7 @@ def run_sqd_pipeline(
                 avg_occupancy,
                 num_alpha,
                 num_beta,
-                rand_seed=rng,
+                rand_seed=rng_seed,
             )
 
         # Post-select by desired particle numbers and then subsample
@@ -113,24 +177,30 @@ def run_sqd_pipeline(
             probs_array_ps,
             samples_per_batch=samples_per_batch,
             num_batches=num_batches,
-            rand_seed=rng,
+            rand_seed=rng_seed,
         )
 
+        print(f"Number of batches created: {len(batches)}")
+        print(f"Batch 0 type: {type(batches[0]) if len(batches) > 0 else 'No batches'}")
+        
         # Run eigenstate solvers in a loop. This loop should be parallelized for larger problems.
         e_tmp = np.zeros(num_batches)
         s_tmp = np.zeros(num_batches)
         occs_tmp = []
         coeffs = []
         for j in range(num_batches):
-            strs_a, strs_b = bitstring_matrix_to_ci_strs(batches[j])
+            if len(batches[j]) != 2:
+                print(f"Error: batch {j} has {len(batches[j])} elements, expected 2")
+                continue
+            batch_bitstrings, batch_probs = batches[j]  # Unpack the tuple
+            strs_a, strs_b = bitstring_matrix_to_ci_strs(batch_bitstrings)
             print(f"Batch {j} subspace dimension: {len(strs_a) * len(strs_b)}")
             energy_sci, coeffs_sci, avg_occs, spin = solve_fermion(
-                batches[j],
+                batch_bitstrings,
                 core_hamiltonian,
                 electron_repulsion_integrals,
                 open_shell=open_shell,
                 spin_sq=spin_sq,
-                max_cycle=200
             )
             energy_sci += nuclear_repulsion_energy
             e_tmp[j] = energy_sci
@@ -273,9 +343,6 @@ if __name__ == '__main__':
     # we're going to modify the savedir for each case, so keep a copy of the original
     keepSaveDir = globalArgs["savedir"]
 
-    # warm up sandboxes we use - here the latest Qiskit libs
-    # lwfManager.updateSite("ibm-quantum-venv")
-
     # *******************************************
     # for each case in the workflow toml
 
@@ -311,7 +378,10 @@ if __name__ == '__main__':
         nuclear_repulsion_energy = molecule_scf.mol.energy_nuc()
         print(f"\nNuclear Repulsion Energy: {nuclear_repulsion_energy}\n")
 
+        backend = AerSimulator(method='matrix_product_state')
+
         energy_hist, spin_sq_hist, occupancy_hist = run_sqd_pipeline(
+            backend=backend,
             core_hamiltonian = core_hamiltonian,
             electron_repulsion_integrals = electron_repulsion_integrals,
             nuclear_repulsion_energy = nuclear_repulsion_energy,
@@ -323,7 +393,8 @@ if __name__ == '__main__':
             iterations_count = caseArgs['iterations_count'],
             num_batches = caseArgs['num_batches'],
             samples_per_batch = caseArgs['samples_per_batch'],
-            rng_seed = caseArgs['rng_seed']
+            rng_seed = caseArgs['rng_seed'],
+            synthetic_counts = caseArgs['synthetic_counts']
         )
         energy_hists[caseId] = energy_hist
         iterations[caseId] = caseArgs['iterations_count']
@@ -336,5 +407,5 @@ if __name__ == '__main__':
         iterations=iterations, # for x-axis
         exact_energies=exact_energies,    # reference exact energy
         output_path=output_path,            # where to save the generated figure
-        show_plot=caseArgs['show_plot']
+        show_plot=True
     )
