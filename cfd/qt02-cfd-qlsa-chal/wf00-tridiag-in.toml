@@ -1,0 +1,32 @@
+
+# values to be used for all test cases
+[global]
+savedir = "/tmp/lwfm/qt02-cfd/wf01"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/frontier_qlsa/circuit_HHL.py"
+qc_backend = "statevector_sim_aer"
+qc_shots = 1024
+
+
+# ORNL CFD variables
+P_in = 200          # inlet pressure
+P_out = 0           # outlet pressure
+U_top = 0           # top velocity
+U_bottom = 0        # bottom velocity
+L = 1               # length
+D = 1               # depth
+mu = 1              # dynamic viscosity
+rho = 1             # fluid density
+
+# *****************************************************************************
+# test cases
+
+[case00]
+case = "sample-tridiag"
+NQ_MATRIX = 2
+nx = 2
+ny = 3
+var = "pressure"
+
+
+
+

@@ -1,0 +1,25 @@
+
+case_name: $case
+NQ_MATRIX: $NQ_MATRIX
+
+
+P_in: $P_in            
+P_out: $P_out          
+U_top: $U_top          
+U_bottom: $U_bottom    
+L: $L                  
+D: $D                  
+mu: $mu                
+rho: $rho              
+nx: $nx                
+ny: $ny                
+var: "$var"            
+
+
+savedir: "$savedir"
+fileprefix: ""
+savefilename: "$savedir/$case"
+filename_pressure: "$savedir/$case_metadata.pkl" 
+
+
+
