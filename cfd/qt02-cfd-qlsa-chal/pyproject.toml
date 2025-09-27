@@ -11,6 +11,8 @@ requires-python = ">=3.13"
 dependencies = [
     "qiskit",
     "toml",
+    "numpy",
+    "matplotlib",
     "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",
 ]
 
