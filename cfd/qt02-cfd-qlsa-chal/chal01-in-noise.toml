@@ -9,8 +9,8 @@ savedir = "/tmp/lwfm/qt02-cfd/chal01"
 
 # where to run the circuit - in another named venv site with a specific quantum backend
 exec_site = "ibm-quantum"
-qc_backend = "ibm_brisbane" # "ibm_brisbane_aer"    # "automatic_sim_aer" # "qasm_simulator_sim_aer"
-sim_custom_noise = true     # only applies to sim backends
+qc_backend = "density_matrix_sim_aer"
+
 
 # ORNL CFD case variables
 P_in = 200          # inlet pressure
@@ -31,25 +31,27 @@ var = "pressure"
 # ****************************************************
 # test cases
 
-[case-100]
-qc_shots = 100
-
 [case-1000]
 qc_shots = 1000
+sim_custom_noise = false  
+
+[case-1000-n]
+qc_shots = 1000
+sim_custom_noise = true     
 
 [case-10000]
 qc_shots = 10000
+sim_custom_noise = false
 
-[case-20000]
-qc_shots = 20000
-
-[case-50000]
-qc_shots = 50000
+[case-10000-n]
+qc_shots = 10000
+sim_custom_noise = true
 
 [case-100000]
 qc_shots = 100000
+sim_custom_noise = false
 
-#[case-1000000]
-#qc_shots = 1000000
-
+[case-100000-n]
+qc_shots = 100000
+sim_custom_noise = true
 

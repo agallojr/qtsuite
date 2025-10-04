@@ -1,0 +1,13 @@
+[global]
+jid = "JVASP-816"
+var_form_maxiter = 500
+
+[case01]
+kx = 0.5
+ky = 0.5
+kz = 0.0
+
+[case02]
+kx = 0.0
+ky = 0.0
+kz = 0.0

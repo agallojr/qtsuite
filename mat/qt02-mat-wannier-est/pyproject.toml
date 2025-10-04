@@ -3,19 +3,19 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qt02-cfd-qlsa-chal"
+name = "qt02-mat-wannier-est"
 version = "0.1.0"
 description = "examples"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">3.7,<3.9"
 dependencies = [
-    "qiskit",
-    "qiskit-aer",
-    "qiskit-ibm-runtime",
-    "toml",
-    "numpy",
-    "matplotlib",
-    "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",
+    "jarvis-tools",
+    "qiskit-aqua==0.7.5",
+    "qiskit-terra==0.15.2",
+    "qiskit-ignis==0.4.0",
+    "numpy>=1.17,<1.20",
+    "spglib<2.3",
+    "toml"
 ]
 
 [tool.setuptools]

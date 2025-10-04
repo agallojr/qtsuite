@@ -31,7 +31,7 @@ choice. Report number of times the circuit was run to obtain UQ.
 """
 
 #pylint: disable=wrong-import-position, invalid-name, superfluous-parens, multiple-statements
-#pylint: disable=broad-exception-caught, redefined-outer-name
+#pylint: disable=broad-exception-caught, redefined-outer-name, consider-using-enumerate
 
 import sys
 from pathlib import Path
@@ -39,9 +39,9 @@ from typing import cast
 import pickle
 import subprocess
 
-
 import qiskit    # pylint: disable=unused-import
 from qiskit.result import Result as QiskitJobResult
+from qiskit_aer.noise import NoiseModel, ReadoutError, depolarizing_error
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,6 +54,24 @@ from lwfm.base.JobContext import JobContext
 
 from get_wf_args import get_cases_args
 
+def add_custom_noise():
+    """
+    Add custom noise to a sim backend.
+    """
+    noise_model = NoiseModel()
+    error_1q = depolarizing_error(0.0000001, 1)  # 0.00001% - minimal but measurable
+    noise_model.add_all_qubit_quantum_error(error_1q,
+        ['h', 'x', 'y', 'z', 'rx', 'ry', 'rz'])
+
+    error_2q = depolarizing_error(0.0000005, 2)  # 0.00005% - minimal but measurable
+    noise_model.add_all_qubit_quantum_error(error_2q, ['cx', 'cy', 'cz'])
+
+    # Keep readout errors for any sampling-based measurements
+    readout_error = ReadoutError([[0.995, 0.005], [0.01, 0.99]])
+    noise_model.add_all_qubit_readout_error(readout_error)
+
+    return noise_model
+
 
 def plot_qlsa_results(
     classical_solution: np.ndarray,
@@ -61,8 +79,7 @@ def plot_qlsa_results(
     case_labels: list[str],
     shot_counts: list[int],
     output_path: str,
-    show_plot: bool = False
-) -> str:
+    show_plot: bool = False) -> str:
     """
     Plot fidelity vs shots for QLSA convergence study.
     
@@ -89,53 +106,82 @@ def plot_qlsa_results(
 
     # Calculate fidelity for each quantum result
     fidelities = []
-    for qresult in quantum_results:
+    for i, qresult in enumerate(quantum_results):
+        print(f"\n=== Fidelity calculation for case {i+1} ===")
+        print(f"Classical solution: {classical_solution}")
+        print(f"Quantum result: {qresult}")
+
         # For quantum linear systems, fidelity is often measured as the squared overlap
         # between normalized classical and quantum solution vectors
         classical_norm = np.linalg.norm(classical_solution)
         quantum_norm = np.linalg.norm(qresult)
-        
+
+        print(f"Classical norm: {classical_norm:.6f}")
+        print(f"Quantum norm: {quantum_norm:.6f}")
+
         if classical_norm > 0 and quantum_norm > 0:
             # Normalize both vectors
             classical_normalized = classical_solution / classical_norm
             quantum_normalized = qresult / quantum_norm
-            
+
+            print(f"Classical normalized: {classical_normalized}")
+            print(f"Quantum normalized: {quantum_normalized}")
+
             # Fidelity = |<classical_normalized|quantum_normalized>|^2
             inner_product = np.abs(np.dot(classical_normalized, quantum_normalized))
             fidelity = inner_product ** 2
+            print(f"Inner product: {inner_product:.6f}")
+            print(f"Fidelity: {fidelity:.6f}")
         else:
             fidelity = 0.0
-        
+            print("Zero norm detected, fidelity = 0.0")
+
         fidelities.append(fidelity)
 
     # Create figure with single plot
-    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+    _, ax = plt.subplots(1, 1, figsize=(10, 6))
 
     # Plot fidelity vs shots
-    ax.semilogx(shot_counts, fidelities, 'o-', linewidth=2, markersize=8, 
+    ax.semilogx(shot_counts, fidelities, 'o-', linewidth=0, markersize=8,
                 color='#2E8B57', markerfacecolor='#FF6B6B', markeredgecolor='#2E8B57')
-    
+
     # Add horizontal line at fidelity = 1 (perfect match)
-    ax.axhline(y=1.0, color='#BF5700', linestyle='--', alpha=0.7, 
+    ax.axhline(y=1.0, color='#BF5700', linestyle='--', alpha=0.7,
                label='Perfect Fidelity')
-    
-    # Add fidelity values as text annotations
-    for i, (shots, fidelity) in enumerate(zip(shot_counts, fidelities)):
-        ax.annotate(f'{fidelity:.4f}', 
-                   (shots, fidelity), 
-                   textcoords="offset points", 
-                   xytext=(0,10), 
-                   ha='center', fontsize=9)
+
+    # Add fidelity values and case labels as text annotations
+    for i, (shots, fidelity, label) in enumerate(zip(shot_counts, fidelities, case_labels)):
+        # Add fidelity value to the right of the point
+        ax.annotate(f'{fidelity:.4f}',
+                   (shots, fidelity),
+                   textcoords="offset points",
+                   xytext=(10,0),
+                   va='center', fontsize=9,
+                   bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.7))
+        # Add case label below the point
+        ax.annotate(label,
+                   (shots, fidelity),
+                   textcoords="offset points",
+                   xytext=(-12, 10),
+                   ha='center', fontsize=8,
+                   bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.7))
 
     ax.set_xlabel('Number of Shots', fontsize=12)
     ax.set_ylabel('Fidelity', fontsize=12)
-    ax.set_title('QLSA Fidelity Convergence vs Number of Shots', fontsize=14)
+    ax.set_title('QLSA Fidelity Convergence', fontsize=12)
     ax.grid(True, alpha=0.3)
-    ax.legend()
-    
-    # Set y-axis limits to show full range
-    ax.set_ylim(0, 1.1)
-    
+    ax.legend(
+        loc='upper center',
+        bbox_to_anchor=(0.5, -0.15),
+        ncol=2,
+        fancybox=True,
+        shadow=True)
+
+    # Set y-axis limits to focus on high fidelity range (0.2-1.0)
+    min_fidelity = min(fidelities)
+    y_min = min_fidelity - 0.02    # slightly below min fidelity
+    ax.set_ylim(y_min, 1.02)       # slightly above max fidelity
+
     # Format x-axis to show shot counts clearly
     ax.set_xlim(min(shot_counts) * 0.8, max(shot_counts) * 1.2)
 
@@ -149,7 +195,9 @@ def plot_qlsa_results(
 
 if __name__ == '__main__':
 
-    # get the arguments for the cases in this workflow from the TOML file passed as an argument
+    # ******************************************************************************
+    # get the arguments for the cases in this workflow from the TOML file
+
     casesArgs = get_cases_args()
     globalArgs = casesArgs["global"]
 
@@ -163,21 +211,35 @@ if __name__ == '__main__':
     keepSaveDir = globalArgs["savedir"]   # will be altered per case, so keep a copy of the root
 
     # warm up lwfm sandboxes we use by updating their respective dependencies
-    lwfManager.updateSite(globalArgs["preprocess_site"])      # makes the circuits
-    lwfManager.updateSite(globalArgs["exec_site"])   # runs the circuits
+    if globalArgs.get("warmup_sites", True):
+        lwfManager.updateSite()                                     # this projct folder ("./.venv")
+        lwfManager.updateSite(globalArgs["preprocess_site"])        # makes the circuits
+        lwfManager.updateSite(globalArgs["exec_site"])              # runs the circuits
+
+    preprocess_site = lwfManager.getSite(globalArgs["preprocess_site"])
+    exec_site = lwfManager.getSite(globalArgs["exec_site"])
 
 
     # ******************************************************************************
-    # for each case in the workflow toml
-    # ******************************************************************************
 
-    # keep track of the jobs for each case
+    # keep track of the results for each case
     caseResults: list[QiskitJobResult] = []
-    # we know this workflow will run the same circuit multiple times, so we'll test if 
+    quantum_solutions = []
+
+    # we know this workflow will run the same circuit multiple times, so we'll test if
     # this is the first case and do all the preprocessing just once
     firstCase = True
-    matrix = None
-    vector = None
+    matrix = None       # the A in A x = b
+    vector = None       # the b in A x = b
+
+
+    # 0. populate ORNL code property file template for the case
+    # 1. circuit generation
+    # 2. circuit execution
+    # 3. post processing
+    # we'll also do postprocessing for the workflow as a whole at the end
+
+    # for each case in the workflow toml
     for caseId, caseArgs in ((k, v) for k, v in casesArgs.items() if k != "global"):
         # get the args for this case and merge in the global args
         globalArgs["savedir"] = keepSaveDir + "/" + caseId
@@ -188,6 +250,9 @@ if __name__ == '__main__':
         caseOutDir.mkdir(parents=True, exist_ok=True)
 
         if firstCase:
+            # **************************************************************************
+            # 0. populate ORNL code property file template for the case
+
             # take the templatized ORNL input_vars.yaml, fill it in with the case args, save it
             with open("./input_vars.yaml", "r", encoding="utf-8") as f:
                 input_vars = f.read()
@@ -212,32 +277,26 @@ if __name__ == '__main__':
                     f.write(input_vars)
             # associate the input_vars file with the workflow
             lwfManager.notatePut(out_path.as_posix(),
-                JobContext().initialize("template", wf.getWorkflowId()),
-                {"case": caseId})
+                JobContext().initialize("template", wf.getWorkflowId()), {"case": caseId})
 
-        # given a populated ORNL code property file template for the case,
-        # there are various parts to each case
-        # 1. circuit generation
-        # 2. circuit execution
-        # 3. post processing
-        # we'll also do postprocessing for the workflow as a whole at the end
 
-        # **************************************************************************
-        # circuit generation/preprocessing
+            # **************************************************************************
+            # 1. circuit generation/preprocessing
 
-        # in circuit generation, we need to discretize the governing Hele-Shaw equations into
-        # their Ax=B linear form. the matrix A represents the equations, and vector b
-        # the boundary conditions. all of this is done for us by the circuit_HHL.py script given
-        # parameters found in a casefile - in goes things like grid resolution, number qubits, etc.
-        # and out comes a quantum circuit in a Qiskit-portable QPY format.
+            # in circuit generation, we need to discretize the governing Hele-Shaw equations into
+            # their Ax=B linear form. the matrix A represents the equations, and vector b
+            # the boundary conditions. all of this is done for us by the circuit_HHL.py script given
+            # parameters found in a casefile - in goes things like grid resolution, #qubits, etc.
+            # and out comes a quantum circuit in a Qiskit-portable QPY format.
 
-        if firstCase:
-            preprocess_site = lwfManager.getSite(globalArgs["preprocess_site"])
+            # run the ORNL code to take the CFD casefile and generate the circuit (.qpy), save its
+            # extra data (.pkl). we will not let it transpile the circuit, as we will do that
+            # ourselves in the execution step.
 
-            # Create JobContext from workflow
             preprocess_status = preprocess_site.getRunDriver().submit(
                 JobDefn(f"python {caseArgs['circuit_hhl_path']}", JobDefn.ENTRY_TYPE_SHELL,
-                    ["-case", caseArgs['case'], "-casefile", str(out_path), "--savedata"]),
+                    ["-case", caseArgs['case'], "-casefile", str(out_path), "--savedata",
+                        "--no-transpile"]),
                     JobContext().initialize("preproc",
                         wf.getWorkflowId(), preprocess_site.getSiteName()))
             if (preprocess_status is None):
@@ -276,20 +335,48 @@ if __name__ == '__main__':
                 matrix = pkl_data["matrix"]
                 vector = pkl_data["vector"]
 
+            # based on the size of the matrix, we can infer the number of qubits
+            n_qubits_matrix = int(np.log2(matrix.shape[0]))
+            logger.info(f"# qubits = {n_qubits_matrix}")
+            logger.info(f"# rows = {matrix.shape[0]}")
+            logger.info(f"# cols = {matrix.shape[1]}")
+            logger.info(f"# nonzeros = {np.count_nonzero(matrix)}")
+            logger.info(f"# nonzeros / size = {np.count_nonzero(matrix) / matrix.size}")
+
+            # Calculate classical solution once for all cases to use as reference
+            classical_solution_vector = np.linalg.solve(matrix, vector/np.linalg.norm(vector))
+            classical_euclidean_norm = float(np.linalg.norm(classical_solution_vector))
+            logger.info(f"Classical solution vector: {classical_solution_vector}")
+            logger.info(f"Classical euclidean norm: {classical_euclidean_norm}")
+
+        # **************************************************************************
+        # the rest of this loop is run per case
+        # **************************************************************************
+
         firstCase = False
 
         # **************************************************************************
-        # circuit execution step - use a venv site with the latest Qiskit libs
+        # 2. circuit execution step - use a venv site for the target backend
 
-        exec_site = lwfManager.getSite(globalArgs["exec_site"])
-        computeType = caseArgs["qc_backend"]
-        runArgs = {"shots": caseArgs["qc_shots"]}
-        logger.info(f"Submitting job for case {caseId} with circuit {circuit_qpy_path}")
+        computeType = caseArgs["qc_backend"]    # simulators or real machines
+
+        runArgs = {
+            "shots": caseArgs["qc_shots"],      # how many shot/samples per run
+            "measure_all": True,                # the circuit won't have a measurement yet, add it
+            "optimization_level": 0,            # how much 0 none, 3 max, transpile optimization
+        }
+
+        if "_sim_aer" in computeType and caseArgs["sim_custom_noise"]:
+            custom_noise_model = add_custom_noise()
+            runArgs["noise_model"] = lwfManager.serialize(custom_noise_model)
+
         exec_status = exec_site.getRunDriver().submit(
-            JobDefn(str(circuit_qpy_path), JobDefn.ENTRY_TYPE_STRING, {"format": "qpy"}),
-            JobContext().initialize(f"{caseArgs['qc_shots']}",
+            JobDefn(circuit_qpy_path.as_posix(),                # run this circuit
+                JobDefn.ENTRY_TYPE_STRING, {"format": ".qpy"}), # stored in this format
+            JobContext().initialize(f"{caseArgs['qc_shots']}",  # in its own job context
                         wf.getWorkflowId(), exec_site.getSiteName()),
-            computeType, runArgs)
+            computeType,                                        # on this backed
+            runArgs)                                            # with these args
         if exec_status is None:
             logger.error(f"Circuit execution job submission failed {caseId}")
             continue    # to next case
@@ -302,84 +389,110 @@ if __name__ == '__main__':
 
 
         # **************************************************************************
-        # per-case postprocess step
+        # 3. per-case postprocess step
 
         result = cast(QiskitJobResult, lwfManager.deserialize(exec_status.getNativeInfo()))
-        logger.info(f"Circuit execution job completed {caseId}: {result}")
+
+        # Extract solution from measurement counts
+        # Handle different result types from IBM runtime vs simulators
+        if hasattr(result, 'data') and callable(result.data):
+            # QiskitJobResult from simulators
+            counts = result.data()["counts"] if "counts" in result.data() else result.get_counts()
+            theData = result.data()
+        else:
+            # PrimitiveResult from IBM runtime
+            if hasattr(result, 'get_counts'):
+                counts = result.get_counts()
+                theData = result
+            else:
+                # Handle BitArray from IBM runtime
+                bit_array = result[0].data.meas
+                counts = bit_array.get_counts()  # Convert BitArray to counts dictionary
+                theData = result
+        logger.info(f"Case {caseId} - Measurement counts: {counts}")
+
+        # For HHL with measurements, extract solution from middle register (based on HHL structure)
+        # Solution qubits are located in the middle of the register, not first or last
+        total_shots = sum(counts.values())
+        logger.info(f"Case {caseId} - Total shots: {total_shots}")
+        n_solution = 2 ** n_qubits_matrix  # Matrix size = 2^n_qubits_matrix
+        quantum_solution = np.zeros(n_solution)
+
+        # HHL solution extraction based on observed measurement bitstring pattern
+        # Extract solution from the last n_qubits_matrix bits of each measurement as the
+        # HHL circuit places the solution in some, and uses others as ancillas.
+
+        for bitstring, count in counts.items():
+            # Convert bitstring to state index (handle both hex and binary formats)
+            # Qiskit is going to return the bitstring in hex format
+            if bitstring.startswith('0x'):
+                state_index = int(bitstring, 16)  # Hexadecimal format
+            else:
+                state_index = int(bitstring, 2)   # Binary format
+
+            # Extract solution register bits (last n_qubits_matrix bits)
+            solution_bits = state_index & ((1 << n_qubits_matrix) - 1)
+
+            if solution_bits < n_solution:
+                quantum_solution[solution_bits] += count / total_shots
+
+        # Filter near-zero components (like HHL reference implementation)
+        quantum_solution[np.abs(quantum_solution) < 1e-10] = 0
+
+        logger.info(f"Case {caseId} - Raw quantum solution: {quantum_solution}")
+
+        # Normalize and scale to match classical solution
+        if np.linalg.norm(quantum_solution) > 0:
+            quantum_solution = quantum_solution / np.linalg.norm(quantum_solution) \
+                * classical_euclidean_norm
+            solvec_hhl = quantum_solution
+        else:
+            logger.warning("Zero norm quantum solution from measurements")
+            solvec_hhl = np.zeros(n_solution)
+
+        logger.info(f"Case {caseId}, Solution vector: {solvec_hhl}")
+
         # write result to file in case directory
         result_path = caseOutDir / "results.out"
         with open(result_path, "w", encoding="utf-8") as f:
             f.write(str(result))
-            f.write(str(result.data()))
+            f.write(str(theData))
+            f.write(str(solvec_hhl))
         lwfManager.notatePut(result_path.as_posix(), exec_status.getJobContext(), {"case": caseId})
 
-        # save the job info for postprocessing
+        # save the job info and solution for postprocessing
         caseResults.append(result)
+        quantum_solutions.append(solvec_hhl)
 
+        # **************************************************************************
         # end of case loop
+        # **************************************************************************
+
 
     # ******************************************************************************
     # workflow post-process
 
-    # solve classically for comparison
-    classical_solution_vector = np.linalg.solve(matrix, vector/np.linalg.norm(vector))
-    classical_euclidean_norm = float(np.linalg.norm(classical_solution_vector))
-    logger.info(f"Classical solution vector: {classical_solution_vector}")
-    logger.info(f"Classical euclidean norm:  {classical_euclidean_norm}")
+    logger.info("End of case iterations - now post-processing workflow")
 
+    # Classical solution already calculated during first case processing
 
-    #hhl_solution = hhl.solve(matrix, vector)
-
-
-    # extract quantum solution vectors and prepare for plotting
-    quantum_solutions = []
+    # Prepare data for plotting using already-extracted solutions
     case_labels = []
     shot_counts = []
 
+    # Get case info for each result
     for i, result in enumerate(caseResults):
-        logger.info(f"result {result}")
-        logger.info(f"result.data {result.data()}")
-
-        # Get case info first
         case_id = list(casesArgs.keys())[i+1]  # +1 to skip 'global'
         shots = casesArgs[case_id]['qc_shots']
         shot_counts.append(shots)
         case_labels.append(f"{shots} shots")
 
-        # Extract solution vector from quantum result
-        # Note: This is a placeholder - you'll need to adapt based on your HHL implementation
-        # The HHL algorithm typically returns the solution in the quantum state amplitudes
-        try:
-            # For statevector simulator, we can extract the statevector
-            if hasattr(result, 'data') and hasattr(result.data(), 'statevector'):
-                statevector = result.data().statevector
-                # Extract the solution part (this depends on your HHL circuit structure)
-                # Typically the solution is encoded in specific qubits
-                quantum_solution = np.abs(statevector[:len(classical_solution_vector)])
-                # Normalize to match classical solution scale
-                quantum_solution = quantum_solution / np.linalg.norm(quantum_solution) * \
-                    classical_euclidean_norm
-            else:
-                # Fallback: create a mock solution that improves with shot count
-                # Simulate quantum noise that decreases with more shots
-                noise_level = 0.5 / np.sqrt(shots)  # Noise decreases as 1/sqrt(shots)
-                quantum_solution = classical_solution_vector + \
-                    np.random.normal(0, noise_level, len(classical_solution_vector))
-                logger.warning(f"Using mock quantum solution for case {i} with {shots} shots - implement proper extraction")
-
-            quantum_solutions.append(quantum_solution)
-
-        except Exception as e:
-            logger.error(f"Error extracting solution from result {i}: {e}")
-            # Use a fallback solution that also improves with shots
-            noise_level = 0.5 / np.sqrt(shots)
-            quantum_solution = classical_solution_vector + \
-                np.random.normal(0, noise_level, len(classical_solution_vector))
-            quantum_solutions.append(quantum_solution)
-
-    # generate fidelity convergence plot
+    # now with the pre-chewed per-result data, generate the fidelity convergence plot
     if quantum_solutions:
         plot_output_path = globalArgs["savedir"] + "/qlsa_fidelity_convergence.png"
+        case_labels = \
+         [f"{case_params['qc_shots']}-{'n' if case_params.get('sim_custom_noise', False) else ''}"
+            for case_id, case_params in casesArgs.items() if case_id != 'global']
         plot_path = plot_qlsa_results(
             classical_solution=classical_solution_vector,
             quantum_results=quantum_solutions,
@@ -390,25 +503,6 @@ if __name__ == '__main__':
         )
         logger.info(f"Generated fidelity convergence plot: {plot_path}")
         lwfManager.notatePut(plot_path, exec_status.getJobContext(), {})
-
-        # Print summary statistics
-        logger.info("=== QLSA Fidelity Results Summary ===")
-        logger.info(f"Classical solution norm: {classical_euclidean_norm:.6f}")
-        for i, (qsol, label, shots) in enumerate(zip(quantum_solutions, case_labels, shot_counts)):
-            # Calculate fidelity using same method as plotting function
-            classical_norm = np.linalg.norm(classical_solution_vector)
-            quantum_norm = np.linalg.norm(qsol)
-            
-            if classical_norm > 0 and quantum_norm > 0:
-                classical_normalized = classical_solution_vector / classical_norm
-                quantum_normalized = qsol / quantum_norm
-                inner_product = np.abs(np.dot(classical_normalized, quantum_normalized))
-                fidelity = inner_product ** 2
-            else:
-                fidelity = 0.0
-            
-            error = np.linalg.norm(qsol - classical_solution_vector)
-            logger.info(f"{shots} shots: fidelity={fidelity:.6f}, L2_error={error:.6f}")
 
     # end of workflow
     logger.info(f"End of workflow {wf.getWorkflowId()}")
