@@ -2,17 +2,29 @@
 hamiltonian from fci
 """
 
-#pylint: disable=protected-access
+#pylint: disable=protected-access, invalid-name
 
 import numpy as np
 from pyscf import gto, scf, fci, ao2mo
 from qiskit.quantum_info import SparsePauliOp
-from qiskit import QuantumCircuit
-from qiskit.circuit.library import TwoLocal
-from qiskit_aer.primitives import Estimator
+from qiskit.circuit.library import EfficientSU2
+from qiskit.quantum_info import Statevector
 from scipy.optimize import minimize
 
-# 1. Create molecule and get integrals
+# Create molecule and get integrals.
+# This could be read in from an FCI file - here's an elaborate example:
+#
+# # Read in molecule from disk and mine it for integrals
+# molecule_scf = tools.fcidump.to_scf(caseArgs['input_fcidump'])
+# print("Molecule read from file.")
+# # Core Hamiltonian representing the single-electron integrals
+# core_hamiltonian = molecule_scf.get_hcore()
+# print("Core Hamiltonian created.")
+# # Electron repulsion integrals representing the two-electron integrals
+# electron_repulsion_integrals = ao2mo.restore(1, molecule_scf._eri,
+#     caseArgs['num_orbitals'])
+#
+# Keeping it simple for now with H2
 mol = gto.Mole()
 mol.atom = 'H 0 0 0; H 0 0 0.74'
 mol.basis = 'sto-3g'
@@ -20,138 +32,72 @@ mol.build()
 
 mf = scf.RHF(mol).run()
 
-# 2. Get integrals directly from mean-field calculation
+# Get integrals directly from mean-field calculation
 h1e = mf.mo_coeff.T @ mf.get_hcore() @ mf.mo_coeff
-# 3. Transform 2-electron integrals to MO basis
+
+# Transform 2-electron integrals to MO basis
 h2e = ao2mo.kernel(mol, mf.mo_coeff)
 ecore = mf.energy_nuc()
 norb = mf.mo_coeff.shape[1]
 nelec = mol.nelec
 
-# 4. Construct FCI Hamiltonian matrix
-# For small systems, you can construct the dense matrix directly
-# Note: For large systems, this is not feasible.
+# Construct full FCI Hamiltonian matrix
 fci_solver = fci.FCI(mf)
-indices, hamiltonian_matrix = fci_solver.pspace(h1e, h2e, norb, nelec)
+
+# Get exact FCI energy for comparison
+fci_energy = fci_solver.kernel()[0]
+print(f"Exact FCI energy from PySCF: {fci_energy:.8f} Hartree")
+
+# Build Hamiltonian matrix in full CI space
+# For H2 with 2 orbitals and 2 electrons, we have 4 determinants (singlets only for RHF)
+# Use pspace with large np to get full space
+indices, hamiltonian_matrix = fci_solver.pspace(h1e, h2e, norb, nelec, np=99)
 hamiltonian_matrix = hamiltonian_matrix + np.diag([ecore] * hamiltonian_matrix.shape[0])
+print(f"Hamiltonian matrix shape: {hamiltonian_matrix.shape}")
 
-# Print the Hamiltonian matrix
-print("FCI Hamiltonian Matrix:")
-print(hamiltonian_matrix)
-
-# 5. Convert to weighted Pauli operator
+# Convert to Pauli operator
 hamil_qop = SparsePauliOp.from_operator(hamiltonian_matrix)
+exact_ground = fci_energy
 
-print("\nWeighted Pauli Operator:")
-print(hamil_qop)
+# VQE Setup
+num_qubits = hamil_qop.num_qubits
+print(f"Hamiltonian requires {num_qubits} qubits")
 
-# 6. Create quantum circuit for the Hamiltonian
-# Determine number of qubits needed
-num_qubits = int(np.log2(hamiltonian_matrix.shape[0]))
-print(f"\nNumber of qubits needed: {num_qubits}")
+# Use simpler ansatz
+ansatz = EfficientSU2(num_qubits, reps=2, entanglement='linear')
 
-# Create a more expressive variational ansatz circuit
-ansatz = TwoLocal(num_qubits, ['ry', 'rz'], 'cz', reps=3, entanglement='full')
-print("\nVariational Ansatz Circuit:")
-print(ansatz)
-
-# Create a simple state preparation circuit (Hartree-Fock initial state)
-hf_circuit = QuantumCircuit(num_qubits)
-# For H2 molecule, put electrons in lowest energy orbitals
-# Assuming 2 electrons in 2 qubits (spin-up and spin-down)
-if num_qubits >= 2:
-    hf_circuit.x(0)  # Spin-up electron
-    hf_circuit.x(1)  # Spin-down electron
-
-print("\nHartree-Fock Initial State Circuit:")
-print(hf_circuit)
-
-# Create template VQE circuit for visualization (parameters unbound)
-template_circuit = hf_circuit.compose(ansatz)
-template_circuit = template_circuit.decompose()
-print("\nVQE Circuit Template (parameters unbound):")
-print(template_circuit)
-print(f"\nQubits: {num_qubits} Number of gates: {template_circuit.count_ops()} "
-      f"depth {template_circuit.depth()}")
-print("Note: Actual VQE uses this template with dynamically bound parameters")
-
-# 7. Run VQE to find ground state
-print("\n" + "="*50)
-print("RUNNING VQE OPTIMIZATION")
-print("="*50)
-
-# Create estimator for expectation value calculations
-estimator = Estimator()
-
-# Define cost function for VQE
-def cost_function(params):
-    """Calculate expectation value <psi(params)|H|psi(params)>"""
-    # Create a copy of the ansatz and assign parameters
-    param_dict = dict(zip(ansatz.parameters, params))
-    bound_circuit = ansatz.assign_parameters(param_dict)
-    # Combine with initial state
-    full_circuit = hf_circuit.compose(bound_circuit)
-
-    # Calculate expectation value
-    job = estimator.run(full_circuit, hamil_qop)
-    result = job.result()
-    energy = result.values[0]
-
+# VQE cost function using statevector simulation
+def vqe_cost(params):
+    """Compute <ψ(θ)|H|ψ(θ)> using statevector"""
+    bound_circuit = ansatz.assign_parameters(params)
+    psi = Statevector.from_instruction(bound_circuit)
+    energy = psi.expectation_value(hamil_qop).real
     return energy
 
-# Initialize parameters more intelligently
-num_params = ansatz.num_parameters
-# Start with small random values near zero for better convergence
-initial_params = np.random.uniform(-0.1, 0.1, num_params)
-print(f"Number of parameters: {num_params}")
-print(f"Initial parameters: {initial_params}")
-
-# Run optimization with multiple attempts
-print("\nStarting optimization...")
+# Multiple optimization attempts with different starting points
 best_result = None
 best_energy = float('inf')
 
-for attempt in range(3):
-    print(f"\nOptimization attempt {attempt + 1}/3...")
-    if attempt > 0:
-        # Try different starting points
-        initial_params = np.random.uniform(-0.5, 0.5, num_params)
-    
-    result = minimize(cost_function, initial_params, method='COBYLA', 
-                     options={'maxiter': 2000, 'disp': False})
-    
+for attempt in range(5):
+    # Random initial parameters
+    initial_params = np.random.uniform(-0.1, 0.1, ansatz.num_parameters)
+
+    # Optimize with COBYLA
+    result = minimize(vqe_cost, initial_params, method='COBYLA', 
+                     options={'maxiter': 2000, 'tol': 1e-8})
+
     if result.fun < best_energy:
         best_energy = result.fun
         best_result = result
-        print(f"New best energy: {best_energy:.8f} Hartree")
+        print(f"  Attempt {attempt+1}: Energy = {result.fun:.8f} Hartree")
 
 result = best_result
+print(f"\nBest result after 5 attempts: {result.fun:.8f} Hartree")
 
-print("\n" + "="*50)
-print("VQE RESULTS")
-print("="*50)
-print(f"Optimization success: {result.success}")
-print(f"VQE ground state energy: {result.fun:.8f} Hartree")
-print(f"SCF energy (reference): {mf.energy_tot():.8f} Hartree")
-print(f"Energy difference: {abs(result.fun - mf.energy_tot()):.8f} Hartree")
-print(f"Optimal parameters: {result.x}")
-
-# Get exact ground state energy from Hamiltonian diagonalization
-eigenvalues = np.linalg.eigvals(hamiltonian_matrix)
-exact_ground_energy = np.min(eigenvalues)
-print(f"Exact ground state energy: {exact_ground_energy:.8f} Hartree")
-
-# Chemical accuracy analysis
-vqe_error = abs(result.fun - exact_ground_energy)
-chemical_accuracy_hartree = 0.0015936  # 1 kcal/mol in Hartree
-chemical_accuracy_kcal = vqe_error * 627.509  # Convert Hartree to kcal/mol
-
-print(f"VQE error vs exact: {vqe_error:.8f} Hartree")
-print(f"VQE error vs exact: {chemical_accuracy_kcal:.4f} kcal/mol")
-print(f"Chemical accuracy threshold: {chemical_accuracy_hartree:.6f} Hartree (1.0 kcal/mol)")
-
-if vqe_error <= chemical_accuracy_hartree:
-    print("✓ VQE result is within chemical accuracy!")
-else:
-    accuracy_ratio = vqe_error / chemical_accuracy_hartree
-    print(f"✗ VQE error is {accuracy_ratio:.2f}x larger than chemical accuracy")
+# Results
+print(f"\nVQE ground state energy: {result.fun:.8f} Hartree")
+print(f"Exact FCI energy:        {exact_ground:.8f} Hartree")
+print(f"SCF reference energy:    {mf.energy_tot():.8f} Hartree")
+vqe_error = abs(result.fun - exact_ground)
+chemical_accuracy = 0.0015936
+print(f"VQE error:               {vqe_error:.8f} Hartree ({vqe_error/chemical_accuracy:.2f}x chem. accuracy)")
