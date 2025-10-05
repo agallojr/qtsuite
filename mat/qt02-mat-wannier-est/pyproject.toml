@@ -15,7 +15,7 @@ dependencies = [
     "qiskit-ignis==0.4.0",
     "numpy>=1.17,<1.20",
     "spglib<2.3",
-    "toml"
+    "toml",
 ]
 
 [tool.setuptools]
