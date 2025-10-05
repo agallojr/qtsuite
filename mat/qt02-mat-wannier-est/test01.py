@@ -31,8 +31,9 @@ def variational_evolution(hamil_op, num_qubits, maxiter=500) -> float:
     optimizer = COBYLA(maxiter=maxiter)   
 
     # RYRZ is closest to EfficientSU2 in qiskit-aqua 0.7.5
-    # depth controls circuit depth, entanglement controls connectivity
-    var_form = RYRZ(num_qubits=num_qubits, depth=3, entanglement='full')
+    # Increased depth for better expressibility
+    depth = min(6, num_qubits)  # Adaptive depth based on system size
+    var_form = RYRZ(num_qubits=num_qubits, depth=depth, entanglement='full')
     vqe = VQE(hamil_op, var_form, optimizer,
         quantum_instance=QuantumInstance(backend=BasicAer.get_backend('statevector_simulator')))
     result = vqe.run()  
@@ -107,8 +108,9 @@ if __name__ == "__main__":
         qr = QuantumRegister(hamil_qop.num_qubits)
         circuit = QuantumCircuit(qr)
         evo_time = 1.0              # evolution time parameter
-        evo_time_slices = 1000      # number of time slices
-        evolved_circuit = hamil_qop.evolve(None, evo_time, evo_time_slices, quantum_registers=qr)
+        evo_time_slices = 5000      # number of time slices (increased for better accuracy)
+        evolved_circuit = hamil_qop.evolve(None, evo_time, evo_time_slices,
+            quantum_registers=qr)
         decomposed_evolved_circuit = evolved_circuit.decompose()
 
         # Get exact evolution using matrix exponential
@@ -131,7 +133,7 @@ if __name__ == "__main__":
         print(f"*** Computing variational evolution *** {timestamp()}")
         variational_energy = variational_evolution(hamil_qop, hamil_qop.num_qubits, var_form_maxiter)
         energy_error = abs(variational_energy - exact_ground_energy)
-        energy_fidelity = 1.0 - (energy_error / abs(exact_ground_energy)) \
+        energy_accuracy = 1.0 - (energy_error / abs(exact_ground_energy)) \
             if exact_ground_energy != 0 else 1.0
 
         print("******")
@@ -154,6 +156,22 @@ if __name__ == "__main__":
         print(f"Variational:")
         print(f"  Exact ground energy: {exact_ground_energy:.6f}")
         print(f"  VQE energy:          {variational_energy:.6f}")
-        print(f"  Energy fidelity:     {energy_fidelity:.6f}")
+        print(f"  Energy accuracy:     {energy_accuracy:.6f}")
+        print(f"  Energy error:        {energy_error:.6f} eV")
+        
+        # Chemical accuracy standards
+        chemical_accuracy_ev = 0.0016  # 1 kcal/mol = 0.0016 eV
+        millihartree_ev = 0.027211     # 1 mH = 0.027211 eV
+        
+        if energy_error < chemical_accuracy_ev:
+            chem_status = "✓ CHEMICAL ACCURACY"
+        elif energy_error < millihartree_ev:
+            chem_status = "✓ SUB-MILLIHARTREE"
+        else:
+            chem_status = "✗ ABOVE CHEMICAL ACCURACY"
+            
+        print(f"  Chemical accuracy:   {chem_status}")
+        print(f"    (Chemical accuracy: <{chemical_accuracy_ev:.4f} eV = 1 kcal/mol)")
+        print(f"    (Millihartree:      <{millihartree_ev:.4f} eV = 1 mH)")
         print("******")
 

@@ -1,11 +1,11 @@
 [global]
-var_form_maxiter = 500  # number of iterations of VQE
+var_form_maxiter = 5000  # number of iterations of VQE
 
-#[case01]
-#jid = "JVASP-816"      # Al
-#kx = 0.5
-#ky = 0.5
-#kz = 0.0
+[case01]
+jid = "JVASP-816"      # Al
+kx = 0.5
+ky = 0.5
+kz = 0.0
 
 [case02]
 jid = "JVASP-51338"     # FePbW2

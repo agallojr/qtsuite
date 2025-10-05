@@ -50,8 +50,8 @@ print(hamil_qop)
 num_qubits = int(np.log2(hamiltonian_matrix.shape[0]))
 print(f"\nNumber of qubits needed: {num_qubits}")
 
-# Create a variational ansatz circuit
-ansatz = TwoLocal(num_qubits, 'ry', 'cz', reps=2, entanglement='linear')
+# Create a more expressive variational ansatz circuit
+ansatz = TwoLocal(num_qubits, ['ry', 'rz'], 'cz', reps=3, entanglement='full')
 print("\nVariational Ansatz Circuit:")
 print(ansatz)
 
@@ -66,13 +66,14 @@ if num_qubits >= 2:
 print("\nHartree-Fock Initial State Circuit:")
 print(hf_circuit)
 
-# Combine initial state + ansatz for VQE
-vqe_circuit = hf_circuit.compose(ansatz)
-vqe_circuit = vqe_circuit.decompose()
-print("\nComplete VQE Circuit (HF + Ansatz):")
-print(vqe_circuit)
-print(f"\nQubits: {num_qubits} Number of gates: {vqe_circuit.count_ops()} "
-      f"depth {vqe_circuit.depth()}")
+# Create template VQE circuit for visualization (parameters unbound)
+template_circuit = hf_circuit.compose(ansatz)
+template_circuit = template_circuit.decompose()
+print("\nVQE Circuit Template (parameters unbound):")
+print(template_circuit)
+print(f"\nQubits: {num_qubits} Number of gates: {template_circuit.count_ops()} "
+      f"depth {template_circuit.depth()}")
+print("Note: Actual VQE uses this template with dynamically bound parameters")
 
 # 7. Run VQE to find ground state
 print("\n" + "="*50)
@@ -90,24 +91,41 @@ def cost_function(params):
     bound_circuit = ansatz.assign_parameters(param_dict)
     # Combine with initial state
     full_circuit = hf_circuit.compose(bound_circuit)
-    
+
     # Calculate expectation value
     job = estimator.run(full_circuit, hamil_qop)
     result = job.result()
     energy = result.values[0]
-    
+
     return energy
 
-# Initialize parameters randomly
+# Initialize parameters more intelligently
 num_params = ansatz.num_parameters
-initial_params = np.random.uniform(0, 2*np.pi, num_params)
+# Start with small random values near zero for better convergence
+initial_params = np.random.uniform(-0.1, 0.1, num_params)
 print(f"Number of parameters: {num_params}")
 print(f"Initial parameters: {initial_params}")
 
-# Run optimization
+# Run optimization with multiple attempts
 print("\nStarting optimization...")
-result = minimize(cost_function, initial_params, method='COBYLA', 
-                 options={'maxiter': 1000, 'disp': True})
+best_result = None
+best_energy = float('inf')
+
+for attempt in range(3):
+    print(f"\nOptimization attempt {attempt + 1}/3...")
+    if attempt > 0:
+        # Try different starting points
+        initial_params = np.random.uniform(-0.5, 0.5, num_params)
+    
+    result = minimize(cost_function, initial_params, method='COBYLA', 
+                     options={'maxiter': 2000, 'disp': False})
+    
+    if result.fun < best_energy:
+        best_energy = result.fun
+        best_result = result
+        print(f"New best energy: {best_energy:.8f} Hartree")
+
+result = best_result
 
 print("\n" + "="*50)
 print("VQE RESULTS")
@@ -122,4 +140,18 @@ print(f"Optimal parameters: {result.x}")
 eigenvalues = np.linalg.eigvals(hamiltonian_matrix)
 exact_ground_energy = np.min(eigenvalues)
 print(f"Exact ground state energy: {exact_ground_energy:.8f} Hartree")
-print(f"VQE error vs exact: {abs(result.fun - exact_ground_energy):.8f} Hartree")
+
+# Chemical accuracy analysis
+vqe_error = abs(result.fun - exact_ground_energy)
+chemical_accuracy_hartree = 0.0015936  # 1 kcal/mol in Hartree
+chemical_accuracy_kcal = vqe_error * 627.509  # Convert Hartree to kcal/mol
+
+print(f"VQE error vs exact: {vqe_error:.8f} Hartree")
+print(f"VQE error vs exact: {chemical_accuracy_kcal:.4f} kcal/mol")
+print(f"Chemical accuracy threshold: {chemical_accuracy_hartree:.6f} Hartree (1.0 kcal/mol)")
+
+if vqe_error <= chemical_accuracy_hartree:
+    print("✓ VQE result is within chemical accuracy!")
+else:
+    accuracy_ratio = vqe_error / chemical_accuracy_hartree
+    print(f"✗ VQE error is {accuracy_ratio:.2f}x larger than chemical accuracy")
