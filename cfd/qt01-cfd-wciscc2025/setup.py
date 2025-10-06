@@ -34,7 +34,7 @@ else:
     print(f"Warning: {req_file} not found!")
 
 extra_depends = [
-    "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",
+    "lwfm @ git+https://github.com/lwfm-proj/lwfm",
     "setuptools",
     "numpy",
     "scipy",

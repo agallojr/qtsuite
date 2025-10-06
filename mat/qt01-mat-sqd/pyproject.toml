@@ -18,7 +18,7 @@ dependencies = [
     "qiskit_addon_sqd",
     "matplotlib",
     "scipy>=1.15.0,<1.17.0",
-    "lwfm@git+https://github.com/lwfm-proj/lwfm@develop",
+    "lwfm@git+https://github.com/lwfm-proj/lwfm",
     "toml",
     "ffsim"
 ]

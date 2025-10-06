@@ -16,7 +16,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "pyscf",
-    "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",
+    "lwfm @ git+https://github.com/lwfm-proj/lwfm",
 ]
 
 [tool.setuptools]
