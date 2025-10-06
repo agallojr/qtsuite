@@ -4,12 +4,12 @@
 warmup_sites = false
 # a set of dependencies needed to run the frontier-qlsa code, an lwfm venv "site"
 preprocess_site = "frontier-qlsa"
-circuit_hhl_path = "~/proj/src/frontier-qlsa/frontier_qlsa/circuit_HHL.py"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
 savedir = "/tmp/lwfm/qt02-cfd/chal01"
 
 # where to run the circuit - in another named venv site with a specific quantum backend
 exec_site = "ibm-quantum"
-qc_backend = "ibm_brisbane" # "ibm_brisbane_aer"    # "automatic_sim_aer" # "qasm_simulator_sim_aer"
+qc_backend = "ibm_brisbane_aer" #"ibm_brisbane" # "ibm_brisbane_aer"    # "automatic_sim_aer" # "qasm_simulator_sim_aer"
 sim_custom_noise = true     # only applies to sim backends
 
 # ORNL CFD case variables
@@ -34,20 +34,20 @@ var = "pressure"
 [case-100]
 qc_shots = 100
 
-[case-1000]
-qc_shots = 1000
+#[case-1000]
+#qc_shots = 1000
 
-[case-10000]
-qc_shots = 10000
+#[case-10000]
+#qc_shots = 10000
 
-[case-20000]
-qc_shots = 20000
+#[case-20000]
+#qc_shots = 20000
 
-[case-50000]
-qc_shots = 50000
+#[case-50000]
+#qc_shots = 50000
 
-[case-100000]
-qc_shots = 100000
+#[case-100000]
+#qc_shots = 100000
 
 #[case-1000000]
 #qc_shots = 1000000

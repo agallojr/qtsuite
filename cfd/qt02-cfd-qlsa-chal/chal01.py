@@ -52,7 +52,7 @@ from lwfm.midware.LwfManager import lwfManager, logger
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 
-from get_wf_args import get_cases_args
+from qtlib import get_cases_args
 
 def add_custom_noise():
     """

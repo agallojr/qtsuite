@@ -21,7 +21,7 @@ from qiskit.aqua.components.variational_forms import RYRZ
 from qiskit import BasicAer
 from qiskit.aqua import QuantumInstance
 
-from get_wf_args import get_cases_args
+from qtlib import get_cases_args
 import datetime
 
 def timestamp():

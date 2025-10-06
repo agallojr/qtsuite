@@ -7,8 +7,8 @@ kx = 0.5
 ky = 0.5
 kz = 0.0
 
-[case02]
-jid = "JVASP-51338"     # FePbW2
-kx = 0.0
-ky = 0.0
-kz = 0.0
+#[case02]
+#jid = "JVASP-51338"     # FePbW2
+#kx = 0.0
+#ky = 0.0
+#kz = 0.0

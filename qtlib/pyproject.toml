@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtlib"
+version = "0.1.0"
+description = "Shared utilities for qtsuite projects"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "tomli>=1.2.0; python_version >= '3.7' and python_version < '3.11'",
+]
+
+[tool.setuptools]
+packages = {find = {where = ["src"]}}
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88

@@ -7,7 +7,14 @@ Get workflow arguments from a TOML file
 import argparse
 from pathlib import Path
 import sys
-import toml
+
+try:
+    import tomllib  # Python 3.11+
+except (ModuleNotFoundError, ImportError):
+    try:
+        import tomli as tomllib  # Python 3.7-3.10
+    except ImportError:
+        tomllib = None  # Will be handled below
 
 def get_cases_args():
     """Get workflow arguments from a TOML file"""
@@ -24,9 +31,16 @@ def get_cases_args():
 
     # load the TOML file of test case inputs
     try:
-        with open(wf_toml_path, "r") as f:
-            data = toml.load(f)
-    except toml.TomlDecodeError as e:
+        if tomllib is not None:
+            # Use tomllib/tomli (binary mode)
+            with open(wf_toml_path, "rb") as f:
+                data = tomllib.load(f)
+        else:
+            # Fallback to toml package for very old environments
+            import toml
+            with open(wf_toml_path, "r") as f:
+                data = toml.load(f)
+    except Exception as e:
         print(f"Error decoding TOML: {e}")
         sys.exit(1)
 

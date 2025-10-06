@@ -16,7 +16,11 @@ dependencies = [
     "numpy>=1.17,<1.20",
     "spglib<2.3",
     "toml",
+    "qtlib",
 ]
+
+[tool.uv.sources]
+qtlib = { path = "../../qtlib", editable = true }
 
 [tool.setuptools]
 packages = {find = {where = ["."]}}

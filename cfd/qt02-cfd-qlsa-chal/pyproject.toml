@@ -16,7 +16,11 @@ dependencies = [
     "numpy",
     "matplotlib",
     "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",
+    "qtlib",
 ]
+
+[tool.uv.sources]
+qtlib = { path = "../../qtlib", editable = true }
 
 [tool.setuptools]
 packages = {find = {where = ["."]}}
