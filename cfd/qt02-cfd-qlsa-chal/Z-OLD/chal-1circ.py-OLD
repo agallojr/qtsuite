@@ -151,14 +151,6 @@ def plot_qlsa_results(
 
     # Add fidelity values and case labels as text annotations
     for i, (shots, fidelity, label) in enumerate(zip(shot_counts, fidelities, case_labels)):
-        # Add fidelity value to the right of the point
-        ax.annotate(f'{fidelity:.4f}',
-                   (shots, fidelity),
-                   textcoords="offset points",
-                   xytext=(10,0),
-                   va='center', fontsize=9,
-                   bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.7))
-        # Add case label below the point
         ax.annotate(label,
                    (shots, fidelity),
                    textcoords="offset points",
@@ -491,7 +483,7 @@ if __name__ == '__main__':
     if quantum_solutions:
         plot_output_path = globalArgs["savedir"] + "/qlsa_fidelity_convergence.png"
         case_labels = \
-         [f"{case_params['qc_shots']}-{'n' if case_params.get('sim_custom_noise', False) else ''}"
+         [f"{case_id}"
             for case_id, case_params in casesArgs.items() if case_id != 'global']
         plot_path = plot_qlsa_results(
             classical_solution=classical_solution_vector,

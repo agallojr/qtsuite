@@ -1,0 +1,87 @@
+
+# **********************************************************************************
+# values to be used for all test cases
+
+[global]
+
+# sites - sandboxes of dependencies, facades for different compute environments
+warmup_sites = true         # update dependencies in a sandbox before using it (takes a few sec)
+
+# a site to run the frontier-qlsa code to generate the circuit
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/tmp/lwfm/qt02-cfd/chal01a"       # where to save all artifacts (after append of ./wf#)
+
+# where to run the circuit - in another named site with a specific quantum backend
+exec_site = "ibm-quantum"
+sim_custom_noise = false    # code has the ability to feed an otherwise noiseless sim a noise model
+
+# ORNL CFD case variables - ORNL code needs a certain case file format; we templatized that 
+# ORNL case file and here we allow the user to insert the values - the populated case file
+# will be stored in the workflow directory and used to generate the quantum circuit
+P_in = 200          # inlet pressure
+P_out = 0           # outlet pressure
+U_top = 0           # top velocity
+U_bottom = 0        # bottom velocity
+L = 1               # length
+D = 1               # depth
+mu = 1              # dynamic viscosity
+rho = 1             # fluid density
+case = "sample-tridiag"
+NQ_MATRIX = 2                                   # <-- # qubits for the matrix
+nx = 2
+ny = 2
+var = "pressure"
+
+
+# **********************************************************************************
+# test cases - code will iterate over these, folding in the globals above
+
+[c1a]
+qc_shots = 1000
+qc_backend = "density_matrix_sim_aer"
+
+[c1b]
+qc_shots = 10000
+qc_backend = "density_matrix_sim_aer"
+
+[c1c]
+qc_shots = 100000
+qc_backend = "density_matrix_sim_aer"
+
+[c2a]
+qc_shots = 1000
+qc_backend = "matrix_product_state_sim_aer"
+
+[c2b]
+qc_shots = 10000
+qc_backend = "matrix_product_state_sim_aer"
+
+[c2c]
+qc_shots = 100000
+qc_backend = "matrix_product_state_sim_aer"
+
+[c3a]
+qc_shots = 1000
+qc_backend = "ibm_brisbane_aer"
+
+[c3b]
+qc_shots = 10000
+qc_backend = "ibm_brisbane_aer"
+
+[c3c]
+qc_shots = 100000
+qc_backend = "ibm_brisbane_aer"
+
+[c4a]
+qc_shots = 1000
+qc_backend = "ibm_torino_aer"
+
+[c4b]
+qc_shots = 10000
+qc_backend = "ibm_torino_aer"
+
+[c4c]
+qc_shots = 100000
+qc_backend = "ibm_torino_aer"
+

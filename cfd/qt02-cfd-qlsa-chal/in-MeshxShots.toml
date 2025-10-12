@@ -1,0 +1,107 @@
+
+# **********************************************************************************
+# values to be used for all test cases
+
+[global]
+
+# sites - sandboxes of dependencies, facades for different compute environments
+warmup_sites = true         # update dependencies in a sandbox before using it (takes a few sec)
+show_plot = true            # show plot at the end
+
+# a site to run the frontier-qlsa code to generate the circuit
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/tmp/lwfm/qt02-cfd/"       # where to save all artifacts (after append of ./wf#)
+
+# where to run the circuit - in another named site with a specific quantum backend
+exec_site = "ibm-quantum"
+sim_custom_noise = false    # code has the ability to feed an otherwise noiseless sim a noise model
+
+# ORNL CFD case variables - ORNL code needs a certain case file format; we templatized that 
+# ORNL case file and here we allow the user to insert the values - the populated case file
+# will be stored in the workflow directory and used to generate the quantum circuit
+P_in = 200          # inlet pressure
+P_out = 0           # outlet pressure
+U_top = 0           # top velocity
+U_bottom = 0        # bottom velocity
+L = 1               # length
+D = 1               # depth
+mu = 1              # dynamic viscosity
+rho = 1             # fluid density
+case = "sample-tridiag"
+var = "pressure"
+
+
+# **********************************************************************************
+# test cases - code will iterate over these, folding in the globals above
+
+[grid-2x2]
+qc_backend = "density_matrix_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 2
+ny = 2
+
+[grid-4x4]
+qc_backend = "density_matrix_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 4
+ny = 4
+
+[grid-8x8]
+qc_backend = "density_matrix_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 8
+ny = 8
+
+[grid-16x16]
+qc_backend = "density_matrix_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 16
+ny = 16
+
+[grid-32x32]
+qc_backend = "density_matrix_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 32
+ny = 32
+
+[grid-2x2-b]
+qc_backend = "ibm_brisbane_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 2
+ny = 2
+
+[grid-4x4-b]
+qc_backend = "ibm_brisbane_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 4
+ny = 4
+
+[grid-8x8-b]
+qc_backend = "ibm_brisbane_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 8
+ny = 8
+
+[grid-16x16-b]
+qc_backend = "ibm_brisbane_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 16
+ny = 16
+
+[grid-32x32-b]
+qc_backend = "ibm_brisbane_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 32
+ny = 32
+
