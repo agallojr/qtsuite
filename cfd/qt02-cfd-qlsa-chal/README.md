@@ -149,10 +149,20 @@ Next we vary the length and width of the physical domain (L, D) while fixing the
 
 
 ***************************************************************************************
+Uncertainty Quantification
+=====
+
+We use the physical size scaling case which varies L and D, as above, where the size of the mesh (nx=ny) increases proportionally. We run multiple times and calculate the uncertainty in the results. We use a simulation of IBM Brisbane with its noise profile.
+
+![Physical Size Scaling with Uncertainty](img/result7.png)
+
+
+***************************************************************************************
 To Do
 =====
 
-- show UQ
+ - relate num_qubits, nx, ny directly to A matrix size & number of qubits used
+
 - quasi-probability
 - Hele-Shaw
 - any cases we want to re-run on HPC to probe the limits of simulators further

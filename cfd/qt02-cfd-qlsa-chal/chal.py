@@ -98,5 +98,13 @@ if __name__ == '__main__':
     logger.info(f"Generated fidelity convergence plot: {plot_path}")
     lwfManager.notatePut(plot_path, exec_status.getJobContext(), {})
 
+    # Save case data for UQ analysis at workflow root
+    import pickle
+    workflow_root = str(wf.getWorkflowId())
+    results_file = globalArgs["savedir"].split(workflow_root)[0] + workflow_root + "/results.pkl"
+    with open(results_file, 'wb') as f:
+        pickle.dump(case_data, f)
+    logger.info(f"Saved results for UQ analysis: {results_file}")
+
     # end of workflow
     logger.info(f"End of workflow {wf.getWorkflowId()}")

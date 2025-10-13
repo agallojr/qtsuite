@@ -7,7 +7,7 @@
 # sites - sandboxes of dependencies, facades for different compute environments
 warmup_sites = true         # update dependencies in a sandbox before using it (takes a few sec)
 show_plot = true            # show plot at the end
-qc_backend = "density_matrix_sim_aer"
+qc_backend = "ibm_brisbane_aer"
 
 # a site to run the frontier-qlsa code to generate the circuit
 preprocess_site = "frontier-qlsa"
