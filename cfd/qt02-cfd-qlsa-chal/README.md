@@ -3,6 +3,7 @@ Table of Contents
 ====
 
 + Overview
+    - Key Learnings
     - Source Code Origin
     - Statevectors vs. Measurement-based
     - Costs of Real Quantum Computers
@@ -14,6 +15,23 @@ Table of Contents
     - Qubit Scaling
     - Physical Size Scaling
     - Uncertainty Quantification
+
+
+***************************************************************************************
+Key Learnings
+=====
+
+- The HHL algorithm on real quantum computers in the NISQ era is so noisy as to be unusable, problems so small as to have no practical utility. However, on clean simulators it can show useful fidelity, and suggests that in future post-NISQ era quantum may yet have utility for CFD.
+
+- HHL devolves into an Ax=b problem, which can be viewed independently of CFD and benchmarked against existing matrix solvers. Mathematical interest in quantum computing may precede engineering utility. 
+
+- An increase in qubits does not always translate to an increase in fidelity. Qubit count is not the only measure of quantum computer performance. 
+
+- Increases in shot counts often improve fidelity and reproducibility (decrease in uncertainty), but to a limit.
+
+- The cost of running cases beyond a few toy examples on real quantum computers is prohibitively high.
+
+- The rapid changes in quantum hardware and software make software maintence and repeatability a challenge. Breaking changes in foundational libraries like Qiskit are not uncommon. One cannot be continuously porting code to keep up with these changes - sandboxes to wall off code with short shelf life are needed, with interoperability between. Simple code runs are actually more complex heterogeneous workflows.
 
 
 ***************************************************************************************
@@ -52,7 +70,15 @@ We (have come to) understand that the measurement part of the circuit must be ad
 Costs of Real Quantum Computers
 =====
 
-<put something here about cost of running on IBM, Braket, etc.>
+Limited free tier access to older quantum computers is available from vendors like IBM. These are useful for beginners running small toy problems for learning basic concepts, but quickly becomes exhausted running loads even those of limited size discussed in this document.
+
+Simulators, while able to mimic the specific noise and performance characteristics of quantum hardware, only scale to a point, even on HPC.
+
+The cost of running on real hardware is prohibitively high unless there is a strong value proposition. AWS Braket, for example, is pennies per shot, but the cases in this document run on the order of 100,000 shots per (ORNL asked for 1M shots). An hour reserved price is thousands of dollars. IBM's pricing is similar.
+
+https://aws.amazon.com/braket/pricing/
+
+https://www.ibm.com/quantum/products#access-plans
 
 
 ***************************************************************************************
@@ -88,9 +114,9 @@ A million shots can take a while to run without necessarily improving the fideli
 These strings are provided by the lwfm workflow tool's IBM site driver. The driver provides an abstraction over running on different backends, local simulators, and real cloud based machines, using the latest Qiskit libs and Aer simulator.
 
 The following parameters are used to generate the matrix:
-- nx: [2, 3, 4, 5, 6, 7, 8]             # number of grid points in x-direction
-- ny: [2, 3, 4, 5, 6, 7, 8]             # number of grid points in y-direction
-- nq: [2, 3, 4, 5, 6, 7, 8]             # number of qubits for the matrix
+- nx: [2, 3, ...]             # number of grid points in x-direction
+- ny: [2, 3, ...]             # number of grid points in y-direction
+- nq: [2, 3, ...]             # number of qubits for the matrix
 
 There are other CFD-oriented parameters in the ORNL code which we let remain fixed except where noted. The include the input and output pressures/velocity, the length and depth of the domain, the dynamic viscosity and fluid density.
 
@@ -162,17 +188,6 @@ We use the physical size scaling case which varies L and D, as above, where the 
 As shots increase, the results become more reproducible.
 
 ![Physical Size Scaling with Uncertainty](img/result7.png)
-
-
-***************************************************************************************
-To Do
-=====
-
-- physical depth
-- find any runs on real QC?
-- quasi-probability
-- Hele-Shaw
-- any cases we want to re-run on HPC to probe the limits of simulators further
 
 
 ***************************************************************************************
