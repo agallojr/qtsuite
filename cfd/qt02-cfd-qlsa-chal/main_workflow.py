@@ -295,6 +295,17 @@ def run_workflow():
         log_with_time(f"[{caseId}] Phase 3: Post-processing results", case_start_time)
 
         result = cast(QiskitJobResult, lwfManager.deserialize(exec_status.getNativeInfo()))
+        
+        # Try to get transpiled circuit depth from result metadata
+        transpiled_depth = None
+        if hasattr(result, 'metadata') and result.metadata:
+            metadata = result.metadata if isinstance(result.metadata, dict) else result.metadata[0]
+            transpiled_depth = metadata.get('circuit_depth', None)
+        
+        if transpiled_depth:
+            logger.info(f"[{caseId}] Transpiled circuit depth: {transpiled_depth}")
+        else:
+            logger.info(f"[{caseId}] Transpiled depth not available in result metadata")
 
         # Extract solution from measurement counts
         # Handle different result types from IBM runtime vs simulators
@@ -368,6 +379,12 @@ def run_workflow():
         caseResults.append(result)
         quantum_solutions.append(solvec_hhl)
         classical_solutions.append(classical_solution_vector)
+        
+        # Save circuit/matrix metadata for scaling analysis
+        caseArgs['_circuit_qubits'] = num_qubits_circuit
+        caseArgs['_circuit_depth'] = circuit_depth
+        caseArgs['_circuit_depth_transpiled'] = transpiled_depth if transpiled_depth else circuit_depth
+        caseArgs['_matrix_size'] = matrix.shape[0]
         
         case_elapsed = time.time() - case_start_time
         log_with_time(f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)", case_start_time)

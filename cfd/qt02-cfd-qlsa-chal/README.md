@@ -9,10 +9,11 @@ Table of Contents
     - Experimental Variations
 
 + ORNL Case Variations
-    - Mesh by Shots, Clean vs. NISQ
-    - 32x32 Mesh on all Simulated Backends
+    - Clean Sim vs. NISQ
+    - All Simulated Backends
     - Qubit Scaling
     - Physical Size Scaling
+    - Uncertainty Quantification
 
 
 ***************************************************************************************
@@ -95,7 +96,7 @@ There are other CFD-oriented parameters in the ORNL code which we let remain fix
 
 
 ***************************************************************************************
-Mesh by Shots, Clean vs. NISQ
+Clean Sim vs. NISQ
 =====
 
 We run five cases on a clean (no noise) density matrix simulator. For each we increment the size of the mesh (nx, ny) and the number of shots. We also run the same five cases on a simulator of IBM Brisbane with its noise profile (the "-b" cases. The results are compared to the classical fidelity.
@@ -108,7 +109,7 @@ The series cluster at the bottom is on a simulator of IBM Brisbane with its nois
 
 
 ***************************************************************************************
-32x32 Mesh on all Simulated Backends
+All Simulated Backends
 =====
 
 We run the same 32x32 mesh case on all simulated backends, dialing up the shots for each. We get results similar to the above.
@@ -134,6 +135,10 @@ Here we fix the qubit count at 3 and increase the shot count. While increased sh
 
 ![3 Qubits with Increasing Shots](img/result4.png)
 
+Here we show the impact of increasing NQ_MATRIX, nx, and ny on the overall size of the A matrix, and the number of qubits used. Here circuit depth is expressed in pre-transpilation logical gates, not physical - the algorithm is the same no matter the sizing.
+
+![Qubit Scaling](img/result8.png)
+
 
 ***************************************************************************************
 Physical Size Scaling
@@ -154,6 +159,8 @@ Uncertainty Quantification
 
 We use the physical size scaling case which varies L and D, as above, where the size of the mesh (nx=ny) increases proportionally. We run multiple times and calculate the uncertainty in the results. We use a simulation of IBM Brisbane with its noise profile.
 
+As shots increase, the results become more reproducible.
+
 ![Physical Size Scaling with Uncertainty](img/result7.png)
 
 
@@ -161,8 +168,8 @@ We use the physical size scaling case which varies L and D, as above, where the 
 To Do
 =====
 
- - relate num_qubits, nx, ny directly to A matrix size & number of qubits used
-
+- physical depth
+- find any runs on real QC?
 - quasi-probability
 - Hele-Shaw
 - any cases we want to re-run on HPC to probe the limits of simulators further

@@ -39,6 +39,7 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 from main_workflow import run_workflow
 from plotting import plot_qlsa_generic
+from plotting_scaling import plot_scaling_analysis, plot_scaling_table
 
 if __name__ == '__main__':
 
@@ -97,6 +98,23 @@ if __name__ == '__main__':
 
     logger.info(f"Generated fidelity convergence plot: {plot_path}")
     lwfManager.notatePut(plot_path, exec_status.getJobContext(), {})
+
+    # Check if this is a scaling analysis (has circuit metadata)
+    has_scaling_data = any('_circuit_qubits' in case['params'] for case in case_data)
+    
+    if has_scaling_data:
+        logger.info("Detected scaling analysis data, generating scaling plots")
+        
+        scaling_plot_path = globalArgs["savedir"] + "/scaling_analysis.png"
+        plot_scaling_analysis(case_data, scaling_plot_path, 
+                            show_plot=globalArgs.get("show_plot", False))
+        logger.info(f"Generated scaling analysis plot: {scaling_plot_path}")
+        lwfManager.notatePut(scaling_plot_path, exec_status.getJobContext(), {})
+        
+        scaling_table_path = globalArgs["savedir"] + "/scaling_table.png"
+        plot_scaling_table(case_data, scaling_table_path)
+        logger.info(f"Generated scaling table: {scaling_table_path}")
+        lwfManager.notatePut(scaling_table_path, exec_status.getJobContext(), {})
 
     # Save case data for UQ analysis at workflow root
     import pickle

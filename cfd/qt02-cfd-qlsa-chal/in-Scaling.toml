@@ -1,0 +1,109 @@
+
+# **********************************************************************************
+# Scaling study: Show how A matrix size and qubit count scale with parameters
+
+[global]
+
+# sites - sandboxes of dependencies, facades for different compute environments
+warmup_sites = true
+show_plot = true
+qc_backend = "density_matrix_sim_aer"
+qc_shots = 10000
+
+# a site to run the frontier-qlsa code to generate the circuit
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/tmp/lwfm/qt02-cfd/"
+
+# where to run the circuit
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# ORNL CFD case variables
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+mu = 1
+rho = 1
+case = "sample-tridiag"
+var = "pressure"
+
+
+# **********************************************************************************
+# Scaling cases - vary NQ_MATRIX with fixed mesh
+
+[nq2_mesh2]
+NQ_MATRIX = 2
+nx = 2
+ny = 2
+L = 1
+D = 1
+
+[nq3_mesh2]
+NQ_MATRIX = 3
+nx = 2
+ny = 2
+L = 1
+D = 1
+
+[nq4_mesh2]
+NQ_MATRIX = 4
+nx = 2
+ny = 2
+L = 1
+D = 1
+
+# Vary mesh size with fixed NQ_MATRIX
+
+[nq3_mesh2x2]
+NQ_MATRIX = 3
+nx = 2
+ny = 2
+L = 1
+D = 1
+
+[nq3_mesh4x4]
+NQ_MATRIX = 3
+nx = 4
+ny = 4
+L = 1
+D = 1
+
+[nq3_mesh8x8]
+NQ_MATRIX = 3
+nx = 8
+ny = 8
+L = 1
+D = 1
+
+[nq3_mesh16x16]
+NQ_MATRIX = 3
+nx = 16
+ny = 16
+L = 1
+D = 1
+
+# Combined scaling
+
+[nq2_mesh4]
+NQ_MATRIX = 2
+nx = 4
+ny = 4
+L = 1
+D = 1
+
+[nq3_mesh8]
+NQ_MATRIX = 3
+nx = 8
+ny = 8
+L = 1
+D = 1
+
+[nq4_mesh16]
+NQ_MATRIX = 4
+nx = 16
+ny = 16
+L = 1
+D = 1
+
