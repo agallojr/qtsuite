@@ -104,7 +104,7 @@ if __name__ == '__main__':
     
     if has_scaling_data:
         logger.info("Detected scaling analysis data, generating scaling plots")
-        
+
         scaling_plot_path = globalArgs["savedir"] + "/scaling_analysis.png"
         plot_scaling_analysis(case_data, scaling_plot_path, 
                             show_plot=globalArgs.get("show_plot", False))

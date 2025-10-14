@@ -27,7 +27,7 @@ U_top = 0           # top velocity
 U_bottom = 0        # bottom velocity
 mu = 1              # dynamic viscosity
 rho = 1             # fluid density
-case = "sample-tridiag"
+case = "hele-shaw"
 var = "pressure"
 
 
@@ -36,26 +36,26 @@ var = "pressure"
 
 [LD1]
 qc_shots = [100, 1000, 10000, 100000]
-NQ_MATRIX = 3                                 
-nx = 4
-ny = 4
+NQ_MATRIX = 2                                 
+nx = 2
+ny = 2
 L = 1
 D = 1
 
+[LD1-5]
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2                                 
+nx = 3
+ny = 3
+L = 1.5
+D = 1.5
+
 [LD2]
 qc_shots = [100, 1000, 10000, 100000]
-NQ_MATRIX = 3                                 
-nx = 8
-ny = 8
+NQ_MATRIX = 2                                 
+nx = 4
+ny = 4
 L = 2
 D = 2
-
-[LD3]
-qc_shots = [100, 1000, 10000, 100000]
-NQ_MATRIX = 3                                 
-nx = 12
-ny = 12
-L = 3
-D = 3
 
 
