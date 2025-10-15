@@ -237,7 +237,19 @@ def run_workflow():
         n_qubits_matrix = int(np.log2(matrix.shape[0]))
         logger.info(f"[{caseId}] Matrix properties: qubits_from_matrix={n_qubits_matrix}, rows={matrix.shape[0]}, cols={matrix.shape[1]}")
         logger.info(f"[{caseId}] Matrix sparsity: nonzeros={np.count_nonzero(matrix)}, density={np.count_nonzero(matrix) / matrix.size:.4f}")
-        
+        logger.info(f"[{caseId}] Matrix sample (first 4x4): \n{matrix[:4, :4]}")
+        logger.info(f"[{caseId}] Matrix diagonal: {np.diag(matrix)}")
+
+        # Calculate condition number
+        condition_number = np.linalg.cond(matrix)
+        logger.info(f"[{caseId}] Matrix condition number: κ={condition_number:.4e}")
+
+        # if K > threshold, the matrix is too ill-conditioned for the circuit to be useful
+        max_condition_number = caseArgs.get('max_condition_number', 1e12)
+        if condition_number > max_condition_number:
+            logger.warning(f"[{caseId}] Matrix is too ill-conditioned for the circuit to be useful (κ={condition_number:.4e} > {max_condition_number:.4e})")
+            continue
+
         # Compare input parameters with actual circuit/matrix
         grid_size = caseArgs['nx'] * caseArgs['ny']
         logger.info(f"[{caseId}] Comparison: grid_size={grid_size} (nx*ny), NQ_MATRIX={caseArgs['NQ_MATRIX']}, matrix_size={matrix.shape[0]}, circuit_qubits={num_qubits_circuit}")
@@ -296,16 +308,24 @@ def run_workflow():
 
         result = cast(QiskitJobResult, lwfManager.deserialize(exec_status.getNativeInfo()))
         
-        # Try to get transpiled circuit depth from result metadata
+        # Load transpiled circuit from file to get actual depth
         transpiled_depth = None
-        if hasattr(result, 'metadata') and result.metadata:
-            metadata = result.metadata if isinstance(result.metadata, dict) else result.metadata[0]
-            transpiled_depth = metadata.get('circuit_depth', None)
+        transpiled_qpy_path = circuit_qpy_path.parent / f"{circuit_qpy_path.stem}_transpiled{circuit_qpy_path.suffix}"
         
-        if transpiled_depth:
-            logger.info(f"[{caseId}] Transpiled circuit depth: {transpiled_depth}")
+        if transpiled_qpy_path.exists():
+            try:
+                with open(transpiled_qpy_path, "rb") as f:
+                    transpiled_circuits = qpy_load(f)
+                    transpiled_circuit = transpiled_circuits[0] if isinstance(transpiled_circuits, list) else transpiled_circuits
+                    transpiled_depth = transpiled_circuit.depth()
+                    transpiled_size = transpiled_circuit.size()
+                    logger.info(f"[{caseId}] Transpiled circuit: depth={transpiled_depth}, gates={transpiled_size}")
+                    logger.info(f"[{caseId}] Transpiled gate breakdown: {transpiled_circuit.count_ops()}")
+            except Exception as e:
+                logger.warning(f"[{caseId}] Failed to load transpiled circuit: {e}")
+                transpiled_depth = None
         else:
-            logger.info(f"[{caseId}] Transpiled depth not available in result metadata")
+            logger.warning(f"[{caseId}] Transpiled circuit not found at: {transpiled_qpy_path}")
 
         # Extract solution from measurement counts
         # Handle different result types from IBM runtime vs simulators

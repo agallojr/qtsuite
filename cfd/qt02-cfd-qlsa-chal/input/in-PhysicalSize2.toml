@@ -4,6 +4,8 @@
 
 [global]
 
+max_condition_number = 1e4
+
 # sites - sandboxes of dependencies, facades for different compute environments
 warmup_sites = true         # update dependencies in a sandbox before using it (takes a few sec)
 show_plot = true            # show plot at the end

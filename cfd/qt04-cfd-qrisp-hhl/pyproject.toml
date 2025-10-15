@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt04-cfd-qrisp-hhl"
+version = "0.1.0"
+description = "examples"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "qiskit",
+    "qiskit-aer",
+    "qiskit-ibm-runtime",
+    "toml",
+    "numpy",
+    "matplotlib",
+    "lwfm @ git+https://github.com/lwfm-proj/lwfm",
+    "qtlib",
+    "qrisp"
+]
+
+[tool.uv.sources]
+qtlib = { path = "../../qtlib", editable = true }
+
+[tool.setuptools]
+packages = {find = {where = ["."]}}
+
+[tool.black]
+line-length = 88
+[tool.ruff]
+line-length = 88
+
+

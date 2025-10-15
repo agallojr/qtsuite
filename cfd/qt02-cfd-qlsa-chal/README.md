@@ -1,6 +1,9 @@
+Variations on the ORNL CFD "Winter Challenge"
+=====
+
 ***************************************************************************************
 Table of Contents
-====
+=====
 
 + Overview
     - Key Learnings
@@ -143,7 +146,7 @@ The series cluster at the bottom is on a simulator of IBM Brisbane with its nois
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig1: Comparison of noiseless vs noisy simulators, for 2x2 mesh, 2 qubits (expands to 7 qubits, see chart below), varying shots. 
   </figcaption>
-</figure>
+</figure><p>
 
 
 ***************************************************************************************
@@ -160,7 +163,7 @@ In any event, the results were not great, and very similar to the same results o
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
   Fig2: 2x2 case, 2 qubits, 100 - 100,000 shots on a real quantum computer, IBM Brisbane. With on demand pricing, this would cost about $400. Results are poor, same as running on a simulator of Brisbane's noise model.
   </figcaption>
-</figure>
+</figure><p>
 
 
 
@@ -175,7 +178,7 @@ We run the same 32x32 mesh case on all simulated backends, dialing up the shots 
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig3: Comparison of noiseless vs noisy simulators, for 32x32 mesh, varying shots. This shows the gap between NISQ era and end-state error-corrected quantum computers. However, we note that the algorithm, even noiseless, does not provide perfect fidelity.
   </figcaption>
-</figure>
+</figure><p>
 
 
 ***************************************************************************************
@@ -196,7 +199,7 @@ Notice how an increase in qubits, while improving the precision of the eigenvalu
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig4: 2x2 case, num qubits N = [2, 3, 4], varying shots to 10,000. The size of the A matrix will be at least 2^N, but because the A matrix must be made to be Hermitian, and because of ancillas, the matrix size and number of qubits used is likely to be higher than the number specified. More qubits does not necessarily translate to more fidelity.
   </figcaption>
-</figure>
+</figure><p>
 
 Here we fix the qubit count at 3 and drive the shot count to 1M. While increased shot counts gets us over an initial hump, there is a limit to the improvement in fidelity due to shots.
 
@@ -205,7 +208,7 @@ Here we fix the qubit count at 3 and drive the shot count to 1M. While increased
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig5: More shots does not translate to more fidelity - results plateau.
   </figcaption>
-</figure>
+</figure><p>
 
 Here we show the impact of increasing NQ_MATRIX, nx, and ny on the overall size of the A matrix, and the number of qubits used. Here circuit depth is expressed in pre-transpilation logical gates, not physical - the algorithm is the same no matter the sizing.
 
@@ -214,7 +217,7 @@ Here we show the impact of increasing NQ_MATRIX, nx, and ny on the overall size 
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig6: A chart showing the growth in the size of the quantum circuit as a function of the parameters used to generate that sized A matrix.
   </figcaption>
-</figure>
+</figure><p>
 
 ***************************************************************************************
 Physical Size Scaling
@@ -227,7 +230,7 @@ We vary the length and width of the physical domain L=D=[1, 2, 3] while fixing t
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig7: Varying the size of the Hele-Shaw box L=D=[1,2,3], while fixing the number of qubits used for the matrix (nq_matrix=2) and the mesh size (2x2), while varying the number of shots. Fidelity converges with shots.
   </figcaption>
-</figure>
+</figure><p>
 
 
 Next we vary the length and width of the physical domain (L, D) while fixing the number of qubits used for the matrix (nq_matrix=2) and increasing the mesh size (2x2, 3x3, 4x4), while varying the number of shots. Again, we see a limit to the improvement in fidelity due to shots.
@@ -237,7 +240,7 @@ Next we vary the length and width of the physical domain (L, D) while fixing the
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig8: Varying the size of the Hele-Shaw box L=D=[1,1.5,2], while fixing the number of qubits used for the matrix (nq_matrix=2) but increasing the size of the mesh proportionally (2x2, 3x3, 4x4), while varying the number of shots.
   </figcaption>
-</figure>
+</figure><p><p>
 
 ***************************************************************************************
 Uncertainty Quantification
@@ -252,7 +255,7 @@ As shots increase, the results become more reproducible.
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig9: Running the same case multiple times, we can calculate the uncertainty in the results. As shots increase, the results become more reproducible.
   </figcaption>
-</figure>
+</figure><p>
 
 
 ***************************************************************************************
