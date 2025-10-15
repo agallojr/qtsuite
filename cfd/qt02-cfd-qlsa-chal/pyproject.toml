@@ -15,11 +15,12 @@ dependencies = [
     "toml",
     "numpy",
     "matplotlib",
-    "lwfm @ git+https://github.com/lwfm-proj/lwfm",
+    "lwfm",
     "qtlib",
 ]
 
 [tool.uv.sources]
+lwfm = { path = "../../../lwfm", editable = true }
 qtlib = { path = "../../qtlib", editable = true }
 
 [tool.setuptools]

@@ -210,12 +210,12 @@ Here we fix the qubit count at 3 and drive the shot count to 1M. While increased
   </figcaption>
 </figure><p>
 
-Here we show the impact of increasing NQ_MATRIX, nx, and ny on the overall size of the A matrix, and the number of qubits used. Here circuit depth is expressed in pre-transpilation logical gates, not physical - the algorithm is the same no matter the sizing.
+Here we show the impact of increasing NQ_MATRIX, nx, and ny on the overall size of the A matrix, and the number of qubits used. Here circuit depth is expressed in pre-transpilation logical gates and  physical - the algorithm is the same no matter the sizing but each step grows with problem size.
 
 <figure style="border: 1px solid #0F0">
   <img src="img/result8.png" alt="Qubit Scaling">
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
-    Fig6: A chart showing the growth in the size of the quantum circuit as a function of the parameters used to generate that sized A matrix.
+    Fig6: A chart showing the growth in the size of the quantum circuit as a function of the parameters used to generate that sized A matrix. Matrix size is a function of the number of qubits allocated, not mesh size. Actual circuit qubits grows because the matrix may need conditioning, projection to become Hermitian, and ancillas. Depths in the thousands are prohibitive in the NISQ era as the errors compound.
   </figcaption>
 </figure><p>
 
@@ -228,25 +228,16 @@ We vary the length and width of the physical domain L=D=[1, 2, 3] while fixing t
 <figure style="border: 1px solid #0F0">
   <img src="img/result5.png" alt="Physical Size Scaling">
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
-    Fig7: Varying the size of the Hele-Shaw box L=D=[1,2,3], while fixing the number of qubits used for the matrix (nq_matrix=2) and the mesh size (2x2), while varying the number of shots. Fidelity converges with shots.
+    Fig7: Varying the size of the Hele-Shaw box L=D=[1,2,3], while fixing the number of qubits used for the matrix (nq_matrix=2) and the mesh size (2x2), while varying the number of shots on an idealized simulator. Fidelity converges with shots.
   </figcaption>
 </figure><p>
 
-
-Next we vary the length and width of the physical domain (L, D) while fixing the number of qubits used for the matrix (nq_matrix=2) and increasing the mesh size (2x2, 3x3, 4x4), while varying the number of shots. Again, we see a limit to the improvement in fidelity due to shots.
-
-<figure style="border: 1px solid #0F0">
-  <img src="img/result6.png" alt="Physical Size Scaling">
-  <figcaption style="font-style: italic; padding: 2px; text-align: center">
-    Fig8: Varying the size of the Hele-Shaw box L=D=[1,1.5,2], while fixing the number of qubits used for the matrix (nq_matrix=2) but increasing the size of the mesh proportionally (2x2, 3x3, 4x4), while varying the number of shots.
-  </figcaption>
-</figure><p><p>
 
 ***************************************************************************************
 Uncertainty Quantification
 =====
 
-We use the physical size scaling case which varies L and D, as above, where the size of the mesh (nx=ny) increases proportionally. We run multiple times and calculate the uncertainty in the results. We use a simulation of IBM Brisbane with its noise profile.
+We use the physical size scaling case which varies L and D, as above. We run multiple times and calculate the uncertainty in the results. We use a simulation of IBM Brisbane with its noise profile.
 
 As shots increase, the results become more reproducible.
 
@@ -254,6 +245,20 @@ As shots increase, the results become more reproducible.
   <img src="img/result7.png" alt="Physical Size Scaling with Uncertainty">
   <figcaption style="font-style: italic; padding: 2px; text-align: center">
     Fig9: Running the same case multiple times, we can calculate the uncertainty in the results. As shots increase, the results become more reproducible.
+  </figcaption>
+</figure><p>
+
+
+***************************************************************************************
+Matrix Conditioning
+=====
+
+The typical CFD problem produces a matrix which does not necessarily have a nice, HHL-friendly condition number. The HHL algorithm requires the matrix to be Hermitian and positive-definite, and the condition number to be small. To address this, the HHL algorithm uses a matrix expansion technique. This increases the number of required qubits.
+
+<figure style="border: 1px solid #0F0">
+  <img src="img/result0.png" alt="Matrix Conditioning">
+  <figcaption style="font-style: italic; padding: 2px; text-align: center">
+    Fig10: Matrix conditioning sensitivity analysis. The HHL algorithm requires the matrix to be Hermitian and positive-definite, and to address this uses a matrix expansion technique, increasing the number of required qubits.
   </figcaption>
 </figure><p>
 
@@ -274,7 +279,7 @@ Going forward in tracking the progress of quantum computing relative to CFD util
 
 For HHL, the combination of CFD case inputs results in the generation of an A matrix an b vector, which then results in a circuit to run over shots and measure. In a sense, the upstream CFD case is not as interesting at the matrix itself, which can be treated and benchmarked singularly, against classical methods and other quantum approaches. In other words, its more about the math than the CFD engineering.
 
-A more interesting study more specific to CFD going forward might involve thinking outside of simply "quantum-izing" classical methods, but to explore wholely new approaches to CFD inspired by quantum. 
+While we are a long way away from utilizing an algorithm like HHL to solve an industrial CFD problem, a more interesting study specific to CFD going forward might involve thinking outside of simply "quantum-izing" classical methods, but to explore wholely new approaches to CFD inspired by quantum. 
 
 
 ***************************************************************************************

@@ -16,6 +16,7 @@ circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
 savedir = "/tmp/lwfm/qt02-cfd/"
 
 # where to run the circuit
+run_circuit = false
 exec_site = "ibm-quantum"
 sim_custom_noise = false
 

@@ -1,0 +1,72 @@
+
+# **********************************************************************************
+# Condition Number Sensitivity Analysis
+# 
+# This input file demonstrates how CFD parameters affect matrix conditioning
+# and trigger automatic matrix expansion to maintain solvability.
+#
+# We fix the mesh at 2x2 and vary the pressure gradient to stress the conditioning.
+# As the pressure gradient increases, the condition number grows, eventually
+# requiring the ORNL code to expand the matrix size (and qubit count) to solve.
+
+[global]
+
+max_condition_number = 1e4
+run_circuit = false  # Skip execution - only need matrix conditioning analysis
+
+# sites - sandboxes of dependencies, facades for different compute environments
+warmup_sites = true         # update dependencies in a sandbox before using it (takes a few sec)
+show_plot = true            # show plot at the end
+qc_backend = "statevector_sim_aer"  # Fast, no noise for this analysis
+
+# a site to run the frontier-qlsa code to generate the circuit
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/tmp/lwfm/qt02-cfd/"       # where to save all artifacts (after append of ./wf#)
+
+# where to run the circuit - in another named site with a specific quantum backend
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# ORNL CFD case variables
+P_in = 200          # inlet pressure (fixed)
+P_out = 0           # outlet pressure (fixed)
+U_top = 0           # top velocity
+U_bottom = 0        # bottom velocity
+rho = 1             # fluid density
+case = "hele-shaw"
+var = "pressure"
+
+# Fixed domain and matrix size
+L = 1
+D = 1
+NQ_MATRIX = 2
+
+
+# **********************************************************************************
+# test cases - vary mesh size and viscosity to stress conditioning
+# Finer mesh + low viscosity creates advection-dominated (ill-conditioned) problems
+
+[mesh2x2_mu1]
+qc_shots = [1000]
+nx = 2
+ny = 2
+mu = 1.0
+
+[mesh3x3_mu1]
+qc_shots = [1000]
+nx = 3
+ny = 3
+mu = 1.0
+
+[mesh3x3_mu01]
+qc_shots = [1000]
+nx = 3
+ny = 3
+mu = 0.1
+
+[mesh3x3_mu001]
+qc_shots = [1000]
+nx = 3
+ny = 3
+mu = 0.01

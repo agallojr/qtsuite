@@ -83,10 +83,10 @@ def group_cases_for_uq(case_data):
         params = case['params']
         metadata = case['metadata']
 
-        # Create key from physics parameters only
+        # Create key from input parameters only (exclude outputs starting with _)
         param_key = tuple(
             (k, v) for k, v in sorted(params.items())
-            if k != '_metadata' and k not in exclude_params
+            if k != '_metadata' and k not in exclude_params and not k.startswith('_')
         )
 
         grouped[param_key].append(case)

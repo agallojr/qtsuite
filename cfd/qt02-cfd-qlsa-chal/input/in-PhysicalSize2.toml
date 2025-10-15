@@ -9,7 +9,7 @@ max_condition_number = 1e4
 # sites - sandboxes of dependencies, facades for different compute environments
 warmup_sites = true         # update dependencies in a sandbox before using it (takes a few sec)
 show_plot = true            # show plot at the end
-qc_backend = "ibm_brisbane_aer"
+qc_backend = "density_matrix_sim_aer"
 
 # a site to run the frontier-qlsa code to generate the circuit
 preprocess_site = "frontier-qlsa"
@@ -35,29 +35,30 @@ var = "pressure"
 
 # **********************************************************************************
 # test cases - code will iterate over these, folding in the globals above
+# Minimal growth: mesh 2x2 -> 2x2 -> 2x3, physical domain grows slightly
 
 [LD1]
-qc_shots = [100, 1000, 10000, 100000]
+qc_shots = [100, 1000, 10000]
 NQ_MATRIX = 2                                 
 nx = 2
 ny = 2
-L = 1
-D = 1
-
-[LD1-5]
-qc_shots = [100, 1000, 10000, 100000]
-NQ_MATRIX = 2                                 
-nx = 3
-ny = 3
-L = 1.5
-D = 1.5
+L = 1.0
+D = 1.0
 
 [LD2]
-qc_shots = [100, 1000, 10000, 100000]
+qc_shots = [100, 1000, 10000]
 NQ_MATRIX = 2                                 
-nx = 4
-ny = 4
-L = 2
-D = 2
+nx = 2
+ny = 3
+L = 1.1
+D = 1.1
+
+[LD3]
+qc_shots = [100, 1000, 10000]
+NQ_MATRIX = 2                                 
+nx = 2
+ny = 3
+L = 1.2
+D = 1.2
 
 

@@ -47,16 +47,12 @@ if __name__ == '__main__':
     (wf, caseResults, quantum_solutions, classical_solutions,
      casesArgs, globalArgs, exec_status) = run_workflow()
 
-    if not quantum_solutions:
-        logger.error("No quantum solutions found")
-        sys.exit(1)
-
     # ******************************************************************************
     # workflow post-process
 
     logger.info("=" * 80)
     logger.info("Post-processing workflow results")
-    logger.info(f"Number of cases: {len(quantum_solutions)}")
+    logger.info(f"Number of cases with quantum solutions: {len(quantum_solutions)}")
 
     # Prepare data for plotting using already-extracted solutions
     case_labels = []
@@ -75,8 +71,8 @@ if __name__ == '__main__':
             'case_id': case_id,
             'params': case_params,
             'metadata': metadata,
-            'classical_solution': classical_solutions[i],
-            'quantum_solution': quantum_solutions[i]
+            'classical_solution': classical_solutions[i] if i < len(classical_solutions) else None,
+            'quantum_solution': quantum_solutions[i] if i < len(quantum_solutions) else None
         }
         case_data.append(case_info)
 
@@ -86,18 +82,22 @@ if __name__ == '__main__':
             logger.info(f"  Metadata: original={metadata.get('_original_case_id')}, "
                        f"list_params={metadata.get('_list_params')}")
 
-    # Generate the fidelity plot using generic plotter
-    plot_output_path = globalArgs["savedir"] + "/qlsa_fidelity_convergence.png"
+    # Generate the fidelity plot only if we have quantum solutions
+    if quantum_solutions:
+        plot_output_path = globalArgs["savedir"] + "/qlsa_fidelity_convergence.png"
 
-    logger.info("Generating fidelity plot with automatic series detection")
-    plot_path = plot_qlsa_generic(
-        case_data=case_data,
-        output_path=plot_output_path,
-        show_plot=globalArgs.get("show_plot", False)
-    )
+        logger.info("Generating fidelity plot with automatic series detection")
+        plot_path = plot_qlsa_generic(
+            case_data=case_data,
+            output_path=plot_output_path,
+            show_plot=globalArgs.get("show_plot", False)
+        )
 
-    logger.info(f"Generated fidelity convergence plot: {plot_path}")
-    lwfManager.notatePut(plot_path, exec_status.getJobContext(), {})
+        logger.info(f"Generated fidelity convergence plot: {plot_path}")
+        if exec_status:
+            lwfManager.notatePut(plot_path, exec_status.getJobContext(), {})
+    else:
+        logger.info("Skipping fidelity plot (no quantum solutions)")
 
     # Check if this is a scaling analysis (has circuit metadata)
     has_scaling_data = any('_circuit_qubits' in case['params'] for case in case_data)
@@ -106,15 +106,17 @@ if __name__ == '__main__':
         logger.info("Detected scaling analysis data, generating scaling plots")
 
         scaling_plot_path = globalArgs["savedir"] + "/scaling_analysis.png"
-        plot_scaling_analysis(case_data, scaling_plot_path, 
+        plot_scaling_analysis(case_data, scaling_plot_path,
                             show_plot=globalArgs.get("show_plot", False))
         logger.info(f"Generated scaling analysis plot: {scaling_plot_path}")
-        lwfManager.notatePut(scaling_plot_path, exec_status.getJobContext(), {})
-        
+        if exec_status:
+            lwfManager.notatePut(scaling_plot_path, exec_status.getJobContext(), {})
+
         scaling_table_path = globalArgs["savedir"] + "/scaling_table.png"
         plot_scaling_table(case_data, scaling_table_path)
         logger.info(f"Generated scaling table: {scaling_table_path}")
-        lwfManager.notatePut(scaling_table_path, exec_status.getJobContext(), {})
+        if exec_status:
+            lwfManager.notatePut(scaling_table_path, exec_status.getJobContext(), {})
 
     # Save case data for UQ analysis at workflow root
     import pickle
