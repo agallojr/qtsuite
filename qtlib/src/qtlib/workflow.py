@@ -2,12 +2,14 @@
 Get workflow arguments from a TOML file
 """
 
-#pylint: disable=invalid-name
+#pylint: disable=invalid-name, missing-function-docstring, global-statement
 
 import argparse
 from pathlib import Path
 import sys
 from itertools import product
+from datetime import datetime
+import time
 
 try:
     import tomllib  # Python 3.11+
@@ -16,6 +18,37 @@ except (ModuleNotFoundError, ImportError):
         import tomli as tomllib  # Python 3.7-3.10
     except ImportError:
         tomllib = None  # Will be handled below
+
+# Module-level variable to track workflow start time
+workflow_start_time = None
+logger = None
+
+def set_workflow_start_time(_workflow_start_time):
+    global workflow_start_time
+    workflow_start_time = _workflow_start_time
+
+def set_logger(_logger):
+    global logger
+    logger = _logger
+
+def log_with_time(message, last_time, case_start=None):
+    current_time = time.time()
+    delta = current_time - last_time
+    cumulative = current_time - workflow_start_time
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    if case_start is not None:
+        case_cumulative = current_time - case_start
+        logger.info(
+            f"[{timestamp}] [T+{cumulative:.2f}s] "
+            f"[C+{case_cumulative:.2f}s] [Δ{delta:.2f}s] {message}"
+        )
+    else:
+        logger.info(
+            f"[{timestamp}] [T+{cumulative:.2f}s] "
+            f"[Δ{delta:.2f}s] {message}"
+        )
+    last_time = current_time
 
 
 def expand_case_lists(case_id, case_params):

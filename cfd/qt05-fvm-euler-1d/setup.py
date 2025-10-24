@@ -3,7 +3,6 @@ help install dependencies
 """
 
 import os
-import sys
 import subprocess
 from setuptools import setup
 
@@ -11,7 +10,7 @@ from setuptools import setup
 git_user_key = os.environ.get("GIT_USER_KEY")
 if not git_user_key:
     # You must set this environment variable for the installation to work
-    raise ValueError("GIT_USER_KEY environment variable is not set")
+    raise ValueError("GIT_USER_KEY environment variable is not set - use 'user:key' format")
 REPO_URL = "https://{git_user_key}@github.com/mhawwary/fvm_euler_1d_solver"
 REPO_DIR = "fvm_euler_1d_solver"
 if not os.path.exists(REPO_DIR):
@@ -19,8 +18,8 @@ if not os.path.exists(REPO_DIR):
     subprocess.check_call(["git", "clone", REPO_URL])
     print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
 else:
-    print(f"Found existing {REPO_DIR} directory")
-
+    subprocess.check_call(["git", "-C", REPO_DIR, "pull"])
+    print(f"Found existing {REPO_DIR} directory - re-pulling")
 
 # Clone the WCISCC2025 repository if it doesn't exist
 REPO_URL = "https://github.com/olcf/wciscc2025"
@@ -39,7 +38,7 @@ req_file = os.path.join(REPO_DIR, 'qlsa', 'requirements.txt')
 dependencies = []
 
 if os.path.exists(req_file):
-    with open(req_file) as f:
+    with open(req_file, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith('#'):
@@ -60,7 +59,7 @@ dependencies.extend(extra_depends)
 
 # Dynamic dependency configuration
 setup(
-    packages=['qt01_cfd_wciscc2025'],
+    packages=['qt05_fvm_euler_1d'],
     package_dir={'': '.'},
     install_requires=dependencies
 )

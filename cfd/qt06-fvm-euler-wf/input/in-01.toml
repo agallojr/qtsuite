@@ -1,0 +1,27 @@
+[global]
+savedir = "/tmp/qt06-fvm-euler-wf"
+preprocess_site = "qt05-fvm-euler-1d"
+exec_site = "ibm-quantum"
+warmup_sites = false
+circuit_gen_path = "../../../fvm_euler_1d_solver/nozzle_1d_solver.py"
+generate_circuit = false
+run_circuit = false
+post_process = false
+
+[case1]
+scheme = "BDF1"
+cfl = 1e5
+nelem = 200
+localdt = true
+
+[case2]
+scheme = "RK2"
+cfl = 0.9
+nelem = 200
+localdt = true
+
+[case3]
+scheme = "HHL"
+nelem = 4
+localdt = true
+

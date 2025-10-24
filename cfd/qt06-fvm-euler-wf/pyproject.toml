@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt06-fvm-euler-wf"
+version = "0.1.0"
+description = "examples"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "qiskit",
+    "qiskit-aer",
+    "qiskit-ibm-runtime",
+    "toml",
+    "numpy",
+    "matplotlib",
+    "lwfm",
+    "qtlib",
+]
+
+[tool.uv.sources]
+lwfm = { path = "../../../lwfm", editable = true }
+fvm_euler_1d_solver = { path = "../../../fvm_euler_1d_solver", editable = true }
+qtlib = { path = "../../qtlib", editable = true }
+
+[tool.setuptools]
+packages = {find = {where = ["."]}}
+
+[tool.black]
+line-length = 88
+[tool.ruff]
+line-length = 88
+
+
