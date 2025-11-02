@@ -1,0 +1,35 @@
+[global]
+savedir = "/ccs/proj/ard189/lwfm/out/fvm-euler-1d-solver" # a subdir per workflow here
+preprocess_site = "."                       # run locally here
+quantum_site = "ibm-quantum"                # run on ibm quantum here
+quantum_backend = "density_matrix_sim_aer"  # IBM quantum backend to use
+quantum_transpile_opt = 3                   # optimization for transpilation
+warmup_sites = false                        # warm up sites - updates all dependencies
+show_plots = false                          # show plots
+
+solver_path = "./nozzle_1d_solver.py"       # path to time solver & circuit generator
+circuit_executor_path = "./wf_circuit_executor.py"  # path to circuit executor
+run_circuit = true                          # don't run circuit, if there is one
+
+#[case1]
+#scheme = "BDF1"
+#cfl = 1e5
+#nelem = 200
+#localdt = true
+
+#[case2]
+#scheme = "RK2"
+#cfl = 0.9
+#nelem = 200
+#localdt = true
+
+[case3]
+linsolver = "HHL"
+nelem = 2
+cfl = 1e5
+localdt = true
+max_iters = 1
+max_inner_iters = 1
+quantum_shots = 100                         # number of shots for quantum execution
+
+

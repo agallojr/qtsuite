@@ -11,11 +11,12 @@ git_user_key = os.environ.get("GIT_USER_KEY")
 if not git_user_key:
     # You must set this environment variable for the installation to work
     raise ValueError("GIT_USER_KEY environment variable is not set - use 'user:key' format")
-REPO_URL = f"https://{git_user_key}@github.com/mhawwary/fvm_euler_1d_solver"
-REPO_DIR = "fvm_euler_1d_solver"
+REPO_URL = os.environ.get("FVM_REPO_URL",
+    f"https://{git_user_key}@github.com/mhawwary/fvm_euler_1d_solver")
+REPO_DIR = os.environ.get("FVM_REPO_DIR", "fvm_euler_1d_solver")
 if not os.path.exists(REPO_DIR):
     print(f"Cloning {REPO_URL}...")
-    subprocess.check_call(["git", "clone", REPO_URL])
+    subprocess.check_call(["git", "clone", "-b", "feature/qiskit-hhl", REPO_URL])
     print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
 else:
     subprocess.check_call(["git", "-C", REPO_DIR, "pull"])
@@ -48,11 +49,11 @@ else:
     print(f"Warning: {req_file} not found!")
 
 extra_depends = [
-    "lwfm @ git+https://github.com/lwfm-proj/lwfm@develop",  # use develop branch faster bug fixes
     "setuptools",
     "numpy",
     "scipy",
-    "toml"
+    "toml",
+    "qtlib"
 ]
 
 dependencies.extend(extra_depends)

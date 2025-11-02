@@ -12,8 +12,11 @@ requires-python = ">=3.11,<3.12"
 # Declare that dependencies will also come from setup.py
 dynamic = ["dependencies"]
 
+[tool.uv.sources]
+qtlib = { path = "../../qtlib", editable = true }
+
 [tool.setuptools]
-packages = {find = {where = [".", "../../qtlib"]}}
+packages = {find = {where = [".",]}}
 
 [tool.black]
 line-length = 88
