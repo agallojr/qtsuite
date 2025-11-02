@@ -53,17 +53,17 @@ nx = 2
 ny = 2
 mu = 1.0
 
-[mesh3x3_mu1]
-qc_shots = [1000]
-nx = 3
-ny = 3
-mu = 1.0
+#[mesh3x3_mu1]
+#qc_shots = [1000]
+#nx = 3
+#ny = 3
+#mu = 1.0
 
-[mesh3x3_mu01]
-qc_shots = [1000]
-nx = 3
-ny = 3
-mu = 0.1
+#[mesh3x3_mu01]
+#qc_shots = [1000]
+#nx = 3
+#ny = 3
+#mu = 0.1
 
 [mesh3x3_mu001]
 qc_shots = [1000]

@@ -107,7 +107,6 @@ def run_workflow():
 
     # we know this workflow will run the same circuit multiple times, so we'll test if
     # this is the first case and do all the preprocessing just once
-    firstCase = True
     matrix = None       # the A in A x = b
     vector = None       # the b in A x = b
 
@@ -433,19 +432,23 @@ def run_workflow():
                                 else transpiled_circuits
                             )
                             transpiled_depth = transpiled_circuit.depth()
+                            transpiled_size = transpiled_circuit.size()
                             caseArgs['_circuit_depth_transpiled'] = transpiled_depth
+                            caseArgs['_circuit_gates_transpiled'] = transpiled_size
                             logger.info(
-                                f"[{caseId}] Transpiled depth: {transpiled_depth}"
+                                f"[{caseId}] Transpiled: depth={transpiled_depth}, gates={transpiled_size}"
                             )
                     else:
                         logger.warning(
                             f"[{caseId}] Transpiled circuit not found"
                         )
                         caseArgs['_circuit_depth_transpiled'] = None
+                        caseArgs['_circuit_gates_transpiled'] = None
             
             # Save circuit/matrix metadata for scaling analysis
             caseArgs['_circuit_qubits'] = num_qubits_circuit
             caseArgs['_circuit_depth'] = circuit_depth
+            caseArgs['_circuit_gates'] = circuit_size
             caseArgs['_matrix_size'] = matrix.shape[0]
 
             case_elapsed = time.time() - case_start_time
@@ -542,6 +545,8 @@ def run_workflow():
                     )
                     transpiled_depth = transpiled_circuit.depth()
                     transpiled_size = transpiled_circuit.size()
+                    # Save transpiled metrics
+                    caseArgs['_circuit_gates_transpiled'] = transpiled_size
                     logger.info(
                         f"[{caseId}] Transpiled circuit: "
                         f"depth={transpiled_depth}, gates={transpiled_size}"
@@ -553,11 +558,13 @@ def run_workflow():
             except Exception as e:
                 logger.warning(f"[{caseId}] Failed to load transpiled circuit: {e}")
                 transpiled_depth = None
+                caseArgs['_circuit_gates_transpiled'] = None
         else:
             logger.warning(
                 f"[{caseId}] Transpiled circuit not found at: "
                 f"{transpiled_qpy_path}"
             )
+            caseArgs['_circuit_gates_transpiled'] = None
 
         # Extract solution from measurement counts
         # Handle different result types from IBM runtime vs simulators
@@ -649,6 +656,7 @@ def run_workflow():
         # Save circuit/matrix metadata for scaling analysis
         caseArgs['_circuit_qubits'] = num_qubits_circuit
         caseArgs['_circuit_depth'] = circuit_depth
+        caseArgs['_circuit_gates'] = circuit_size
         caseArgs['_circuit_depth_transpiled'] = (
             transpiled_depth if transpiled_depth else circuit_depth
         )

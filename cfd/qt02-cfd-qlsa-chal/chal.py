@@ -39,7 +39,7 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 from main_workflow import run_workflow
 from plotting import plot_qlsa_generic
-from plotting_scaling import plot_scaling_analysis, plot_scaling_table
+from plotting_scaling import plot_scaling_analysis, plot_scaling_table, export_scaling_data_csv
 
 if __name__ == '__main__':
 
@@ -117,6 +117,12 @@ if __name__ == '__main__':
         logger.info(f"Generated scaling table: {scaling_table_path}")
         if exec_status:
             lwfManager.notatePut(scaling_table_path, exec_status.getJobContext(), {})
+
+        scaling_csv_path = globalArgs["savedir"] + "/scaling_data.csv"
+        export_scaling_data_csv(case_data, scaling_csv_path)
+        logger.info(f"Exported scaling data to CSV: {scaling_csv_path}")
+        if exec_status:
+            lwfManager.notatePut(scaling_csv_path, exec_status.getJobContext(), {})
 
     # Save case data for UQ analysis at workflow root
     import pickle

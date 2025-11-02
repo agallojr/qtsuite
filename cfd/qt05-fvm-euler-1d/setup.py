@@ -11,7 +11,7 @@ git_user_key = os.environ.get("GIT_USER_KEY")
 if not git_user_key:
     # You must set this environment variable for the installation to work
     raise ValueError("GIT_USER_KEY environment variable is not set - use 'user:key' format")
-REPO_URL = "https://{git_user_key}@github.com/mhawwary/fvm_euler_1d_solver"
+REPO_URL = f"https://{git_user_key}@github.com/mhawwary/fvm_euler_1d_solver"
 REPO_DIR = "fvm_euler_1d_solver"
 if not os.path.exists(REPO_DIR):
     print(f"Cloning {REPO_URL}...")

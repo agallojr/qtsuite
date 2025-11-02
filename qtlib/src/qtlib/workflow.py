@@ -3,13 +3,17 @@ Get workflow arguments from a TOML file
 """
 
 #pylint: disable=invalid-name, missing-function-docstring, global-statement
+#pylint: disable=broad-exception-caught, logging-fstring-interpolation
 
-import argparse
 from pathlib import Path
 import sys
 from itertools import product
 from datetime import datetime
 import time
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 try:
     import tomllib  # Python 3.11+
@@ -19,25 +23,16 @@ except (ModuleNotFoundError, ImportError):
     except ImportError:
         tomllib = None  # Will be handled below
 
-# Module-level variable to track workflow start time
-workflow_start_time = None
-logger = None
 
-def set_workflow_start_time(_workflow_start_time):
-    global workflow_start_time
-    workflow_start_time = _workflow_start_time
-
-def set_logger(_logger):
-    global logger
-    logger = _logger
-
-def log_with_time(message, last_time, case_start=None):
+def log_with_time(message, time_array):
     current_time = time.time()
-    delta = current_time - last_time
-    cumulative = current_time - workflow_start_time
+    workflow_start = time_array[0]
+    delta = current_time - workflow_start
+    cumulative = current_time - workflow_start
     timestamp = datetime.now().strftime("%H:%M:%S")
 
-    if case_start is not None:
+    if len(time_array) > 1 and time_array[1] is not None:
+        case_start = time_array[1]
         case_cumulative = current_time - case_start
         logger.info(
             f"[{timestamp}] [T+{cumulative:.2f}s] "
@@ -48,7 +43,6 @@ def log_with_time(message, last_time, case_start=None):
             f"[{timestamp}] [T+{cumulative:.2f}s] "
             f"[Δ{delta:.2f}s] {message}"
         )
-    last_time = current_time
 
 
 def expand_case_lists(case_id, case_params):
@@ -80,13 +74,13 @@ def expand_case_lists(case_id, case_params):
     # Find which parameters are lists
     list_params = {}
     scalar_params = {}
-    
+
     for key, value in case_params.items():
         if isinstance(value, list):
             list_params[key] = value
         else:
             scalar_params[key] = value
-    
+
     # If no lists, return the original case with empty metadata
     if not list_params:
         metadata = {
@@ -97,21 +91,21 @@ def expand_case_lists(case_id, case_params):
         params_with_meta = case_params.copy()
         params_with_meta["_metadata"] = metadata
         return [(case_id, params_with_meta)]
-    
+
     # Generate all combinations of list values
     param_names = list(list_params.keys())
     param_values = [list_params[name] for name in param_names]
-    
+
     expanded_cases = []
     for i, combination in enumerate(product(*param_values)):
         # Create new case ID
         expanded_id = f"{case_id}_{i}"
-        
+
         # Create new params dict with this combination
         expanded_params = scalar_params.copy()
         for param_name, param_value in zip(param_names, combination):
             expanded_params[param_name] = param_value
-        
+
         # Add metadata about the expansion
         metadata = {
             "_original_case_id": case_id,
@@ -120,21 +114,16 @@ def expand_case_lists(case_id, case_params):
             "_combination_index": i
         }
         expanded_params["_metadata"] = metadata
-        
+
         expanded_cases.append((expanded_id, expanded_params))
-    
+
     return expanded_cases
 
 
-def get_cases_args():
+def get_cases_args(workflow_toml):
     """Get workflow arguments from a TOML file"""
 
-    # parse CLI args for workflow input file (required)
-    parser = argparse.ArgumentParser(description="Run HHL workflow cases from a TOML definition")
-    parser.add_argument("workflow_toml", metavar="WORKFLOW_TOML", help="Path to input TOML file")
-    args = parser.parse_args()
-
-    wf_toml_path = Path(args.workflow_toml)
+    wf_toml_path = Path(workflow_toml)
     if not wf_toml_path.is_file():
         print(f"Error: {wf_toml_path} not found.")
         sys.exit(1)
@@ -148,7 +137,7 @@ def get_cases_args():
         else:
             # Fallback to toml package for very old environments
             import toml
-            with open(wf_toml_path, "r") as f:
+            with open(wf_toml_path, "r", encoding="utf-8") as f:
                 data = toml.load(f)
     except Exception as e:
         print(f"Error decoding TOML: {e}")
@@ -158,17 +147,20 @@ def get_cases_args():
     # First, separate global from cases
     global_params = data.get("global", {})
     cases_dict = {"global": global_params}
-    
+
     # Expand each case that has list-valued parameters
     for key in data:
         if key == "global":
             continue
-        
+
         # Expand this case (returns list of tuples)
         expanded = expand_case_lists(key, data[key])
-        
-        # Add all expanded subcases to the dict
+
+        # Add all expanded subcases to the dict, merging in global params
         for expanded_id, expanded_params in expanded:
-            cases_dict[expanded_id] = expanded_params
+            # Start with global params, then overlay case-specific params
+            merged_params = global_params.copy()
+            merged_params.update(expanded_params)
+            cases_dict[expanded_id] = merged_params
 
     return cases_dict
