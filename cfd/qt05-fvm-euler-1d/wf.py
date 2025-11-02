@@ -46,10 +46,10 @@ def run_workflow(workflowToml: str):
         startTimes[1] = time.time()
         log_with_time(f"========== Starting case: {caseId} ==========", startTimes)
 
-        caseArgs["savedir"] = caseArgs["savedir"] + "/" + caseId
+        caseArgs["savedir"] = caseArgs["savedir"] + "/" + workflow_id + "/" + caseId
 
         # put all artifacts for this case in its own subdir of workflow root
-        caseOutDir = Path(caseArgs["savedir"])
+        caseOutDir = Path(caseArgs["savedir"]).expanduser()
         caseOutDir.mkdir(parents=True, exist_ok=True)
 
         log_with_time(f"[{caseId}] Starting time solver", startTimes)
@@ -60,7 +60,8 @@ def run_workflow(workflowToml: str):
         log_with_time(f"[{caseId}] Time solver complete", startTimes)
 
         case_elapsed = time.time() - startTimes[1]
-        log_with_time(f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)", startTimes)
+        log_with_time(f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)",
+            startTimes)
 
     # end of workflow
     # ******************************************************************************

@@ -45,6 +45,7 @@ def wf_time_solver(wfId: str,
         args_list.append("-show_plots")
 
     # make sure we have a directory to put the results for this case
+    print(f"**** caseOutDir: {caseOutDir}")
     caseOutDir = caseOutDir.expanduser()
     caseOutDir.mkdir(parents=True, exist_ok=True)
     casedir = caseOutDir.as_posix()
@@ -70,8 +71,9 @@ def wf_time_solver(wfId: str,
             "This might take a while...", startTimes)
 
     # Run the solver directly using subprocess
-
-    cmd = ["python", caseArgs['solver_path']] + args_list
+    # Resolve solver_path to absolute path since we'll run in a different cwd
+    solver_path = Path(caseArgs['solver_path']).expanduser().resolve()
+    cmd = ["python", str(solver_path)] + args_list
     log_with_time(f"[{caseId}] Running solver: {' '.join(cmd)}", startTimes)
 
     process = None
@@ -100,6 +102,7 @@ def wf_time_solver(wfId: str,
             text=True,
             bufsize=1,
             universal_newlines=True,
+            cwd=caseOutDir,  # Run in the case output directory
             preexec_fn=os.setsid  # Create a new process group
         )
         process.wait()
