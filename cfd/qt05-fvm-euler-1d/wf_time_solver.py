@@ -10,16 +10,13 @@ import os
 import signal
 from pathlib import Path
 import subprocess
-from typing import List, Any
+from typing import List
 
 from qtlib import log_with_time
 
-from wf_report_generator import WorkflowReportGenerator
-from wf_circuit_executor import execute_circuit
-
 def wf_time_solver(wfId: str,
     caseId: str, caseArgs: dict, caseOutDir: Path,
-    startTimes: List[float], show_plots: bool = False):
+    startTimes: List[float]):
     """
     called from the main workflow script
     runs a single case's processing step - build up a command line and submit it to the
@@ -41,8 +38,11 @@ def wf_time_solver(wfId: str,
         args_list.extend(["-initers", str(caseArgs['max_inner_iters'])])
     if caseArgs.get('localdt', False):
         args_list.append("-localdt")
-    if show_plots:
-        args_list.append("-show_plots")
+    args_list.extend(["-backend", caseArgs.get('backend', 'ideal')])
+    args_list.append("-savedata")
+    if caseArgs.get('hideplots', False):
+        args_list.append("-hideplots")
+
 
     # make sure we have a directory to put the results for this case
     print(f"**** caseOutDir: {caseOutDir}")
@@ -74,7 +74,7 @@ def wf_time_solver(wfId: str,
     # Resolve solver_path to absolute path since we'll run in a different cwd
     solver_path = Path(caseArgs['solver_path']).expanduser().resolve()
     cmd = ["python", str(solver_path)] + args_list
-    log_with_time(f"[{caseId}] Running solver: {' '.join(cmd)}", startTimes)
+    log_with_time(f"[{caseId}] Running solver: {cmd}", startTimes)
 
     process = None
 
@@ -95,17 +95,28 @@ def wf_time_solver(wfId: str,
     signal.signal(signal.SIGINT, handle_sigint)
 
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=None,  # Inherit parent's stdout
-            stderr=None,  # Inherit parent's stderr
-            text=True,
-            bufsize=1,
-            universal_newlines=True,
-            cwd=caseOutDir,  # Run in the case output directory
-            preexec_fn=os.setsid  # Create a new process group
-        )
-        process.wait()
+        # Open log file for capturing stdout and stderr
+        log_file_path = caseOutDir / f"{caseId}_solver.log"
+        with open(log_file_path, 'w', encoding='utf-8') as log_file:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
+                text=True,
+                bufsize=1,
+                universal_newlines=True,
+                cwd=caseOutDir,  # Run in the case output directory
+                preexec_fn=os.setsid  # Create a new process group
+            )
+
+            # Read and echo output line by line
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                log_file.write(line)
+                log_file.flush()
+
+            process.wait()
 
         if process.returncode != 0:
             raise subprocess.CalledProcessError(
@@ -124,54 +135,3 @@ def wf_time_solver(wfId: str,
         signal.signal(signal.SIGINT, original_sigint)
 
     log_with_time(f"[{caseId}] Solver & circuit construction complete", startTimes)
-
-    # Generate workflow report if using quantum solver
-    if caseArgs.get('linsolver') == 'HHL':
-        print(f"[{caseId}] Generating workflow report...")
-        try:
-            report_gen = WorkflowReportGenerator(casedir, caseId)
-            json_path, text_path = report_gen.generate_complete_report(caseArgs)
-            log_with_time(f"[{caseId}] Reports generated: {json_path.name}, "
-                f"{text_path.name}", startTimes)
-        except Exception as e:
-            print(f"[WARNING] Failed to generate report: {e}")
-
-
-def wf_time_solver_circuit(execute: bool, casedir: str,
-    iter_num: int, subiter_num: int = 0) -> Any:
-    """
-    Callback from time solver to execute circuit on quantum backend.
-
-    Args:
-        casedir: Path to case directory containing wf_context.json
-        iter_num: Current outer iteration number
-        subiter_num: Current inner (Newton) iteration number
-    """
-    # Initialize timing for this callback
-    start_times: list[float] = []
-
-    # Read context from file
-    print("Reading context for circuit execution callback...")
-    context_file = Path(casedir) / "wf_context.json"
-    print(f"Looking for context file at {context_file}")
-    if not context_file.exists():
-        print(f"[ERROR] No context file at {context_file}, skipping circuit execution")
-        return None
-
-    with open(context_file, 'r', encoding='utf-8') as f:
-        context = json.load(f)
-
-    caseId = context.get('case_id', 'unknown')
-    log_with_time(
-        f"[{caseId}] Circuit execution callback for iter={iter_num}, subiter={subiter_num}",
-        start_times
-    )
-
-    try:
-        # Call execute_circuit directly with run_circuit flag
-        ret = execute_circuit(casedir, iter_num, subiter_num, run_circuit=execute)
-        log_with_time(f"[{caseId}] Circuit execution completed", start_times)
-        return ret
-    except Exception as e:
-        sys.stderr.write(f"[ERROR] Failed to execute circuit: {e}\n")
-        return None

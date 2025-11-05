@@ -9,10 +9,13 @@ import sys
 from pathlib import Path
 import time
 import uuid
+import json
 
 # Import local modules
 from qtlib import log_with_time, get_cases_args
 from wf_time_solver import wf_time_solver
+from wf_mine_results import mine_results
+from wf_postprocess import postprocess
 
 # ******************************************************************************
 
@@ -42,6 +45,7 @@ def run_workflow(workflowToml: str):
     # ******************************************************************************
 
     startTimes.append(time.time())
+    caseDirs = []
     for caseId, caseArgs in ((k, v) for k, v in casesArgs.items() if k != "global"):
         startTimes[1] = time.time()
         log_with_time(f"========== Starting case: {caseId} ==========", startTimes)
@@ -52,12 +56,20 @@ def run_workflow(workflowToml: str):
         caseOutDir = Path(caseArgs["savedir"]).expanduser()
         caseOutDir.mkdir(parents=True, exist_ok=True)
 
+        # write the case arguments to a file
+        caseArgsFile = caseOutDir / "case_args.json"
+        with open(caseArgsFile, 'w', encoding='utf-8') as f:
+            json.dump(caseArgs, f, indent=2)
+        log_with_time(f"[{caseId}] Wrote case arguments to {caseArgsFile}", startTimes)
+
+        # main event - call the wrapper for the external time solver
         log_with_time(f"[{caseId}] Starting time solver", startTimes)
-
-        wf_time_solver(workflow_id, caseId, caseArgs, caseOutDir,
-            startTimes, show_plots=caseArgs.get("show_plots", False))
-
+        wf_time_solver(workflow_id, caseId, caseArgs, caseOutDir, startTimes)
         log_with_time(f"[{caseId}] Time solver complete", startTimes)
+
+        # time solver writes to stdout... need to mine it for the info of interest
+        mine_results(caseOutDir)
+        caseDirs.append(caseOutDir)
 
         case_elapsed = time.time() - startTimes[1]
         log_with_time(f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)",
@@ -65,6 +77,9 @@ def run_workflow(workflowToml: str):
 
     # end of workflow
     # ******************************************************************************
+
+    # final post processing
+    postprocess(caseDirs)
 
     workflow_elapsed = time.time() - startTimes[0]
     log_with_time(f"***** End of cases (total workflow time: {workflow_elapsed:.2f}s)",

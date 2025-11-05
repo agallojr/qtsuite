@@ -4,11 +4,10 @@ savedir = "~/.lwfm/out/fvm-euler-1d-solver"
 hideplots = true
 
 linsolver = "HHL"
-
-[case0]
-nelem = 2
 backend = "ideal"
-max_iters = 2
+nelem = 2
 max_inner_iters = 1
 
+[case1]
+max_iters = [1, 2, 6]
 
