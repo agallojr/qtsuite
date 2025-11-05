@@ -5,9 +5,10 @@ hideplots = true
 
 linsolver = "HHL"
 backend = "ideal"
-nelem = 2
+
+[case]
+nelem = 5
+max_iters = 10
 max_inner_iters = 1
 
-[case1]
-max_iters = [1, 2, 6]
 
