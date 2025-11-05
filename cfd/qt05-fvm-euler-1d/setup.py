@@ -16,7 +16,7 @@ REPO_URL = os.environ.get("FVM_REPO_URL",
 REPO_DIR = os.environ.get("FVM_REPO_DIR", "fvm_euler_1d_solver")
 if not os.path.exists(REPO_DIR):
     print(f"Cloning {REPO_URL}...")
-    subprocess.check_call(["git", "clone", "-b", "feature/qiskit-hhl", REPO_URL])
+    subprocess.check_call(["git", "clone", "-b", "feature/agmods", REPO_URL])
     print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
 else:
     subprocess.check_call(["git", "-C", REPO_DIR, "pull"])
