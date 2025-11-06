@@ -1,0 +1,16 @@
+[global]
+solver_path = "/ccs/proj/ard189/agallojr/src/qtsuite/cfd/qt05-fvm-euler-1d/fvm_euler_1d_solver/nozzle_1d_solver.py"
+savedir = "/ccs/proj/ard189/agallojr/out/fvm-euler-1d-solver"                   
+hideplots = true
+dump_matrices = false
+
+linsolver = "HHL"
+backend = "ideal"
+
+[case]
+nelem = 5
+max_iters = 10
+max_inner_iters = 1
+shots = 100
+
+

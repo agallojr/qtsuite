@@ -39,10 +39,16 @@ def wf_time_solver(wfId: str,
     if caseArgs.get('localdt', False):
         args_list.append("-localdt")
     args_list.extend(["-backend", caseArgs.get('backend', 'ideal')])
+    shots = caseArgs.get('shots', 0)
+    if shots > 0:
+        args_list.extend(["-shots", str(shots)])
     args_list.append("-savedata")
     if caseArgs.get('hideplots', False):
         args_list.append("-hideplots")
-
+    if caseArgs.get('dump_matrices', True):
+        args_list.extend(["-v", "2"])
+    else:
+        args_list.extend(["-v", "1"])
 
     # make sure we have a directory to put the results for this case
     print(f"**** caseOutDir: {caseOutDir}")

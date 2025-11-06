@@ -2,12 +2,14 @@
 solver_path = "./fvm_euler_1d_solver/nozzle_1d_solver.py"       
 savedir = "~/.lwfm/out/fvm-euler-1d-solver"                   
 hideplots = true
+dump_matrices = false
 
 linsolver = "HHL"
 
 [case0]
-nelem = 2
+nelem = 5
 backend = "ideal"
+shots = 100
 max_iters = 2
 max_inner_iters = 1
 
