@@ -9,8 +9,8 @@ linsolver = "HHL"
 [case0]
 nelem = 5
 backend = "ideal"
-shots = 100
-max_iters = 2
+shots = 0                   # should run idealized estimation
+max_iters = 5
 max_inner_iters = 1
 
 

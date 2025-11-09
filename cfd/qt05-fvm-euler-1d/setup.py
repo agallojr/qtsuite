@@ -1,66 +1,79 @@
 """
 help install dependencies
+
+This setup.py ensures the fvm_euler_1d_solver repository is cloned and installed.
+The git clone happens when this module is imported during the build process.
 """
 
 import os
 import subprocess
 from setuptools import setup
+from setuptools.command.develop import develop
+from setuptools.command.install import install
 
-# Clone the fvm euler 1d repository if it doesn't exist
-git_user_key = os.environ.get("GIT_USER_KEY")
-if not git_user_key:
-    # You must set this environment variable for the installation to work
-    raise ValueError("GIT_USER_KEY environment variable is not set - use 'user:key' format")
-REPO_URL = os.environ.get("FVM_REPO_URL",
-    f"https://{git_user_key}@github.com/mhawwary/fvm_euler_1d_solver")
+# Repository configuration
+REPO_BRANCH = "feature/qiskit-hhl-2"
+REPO_URL_BASE = "https://github.com/mhawwary/fvm_euler_1d_solver"
 REPO_DIR = os.environ.get("FVM_REPO_DIR", "fvm_euler_1d_solver")
-if not os.path.exists(REPO_DIR):
-    print(f"Cloning {REPO_URL}...")
-    subprocess.check_call(["git", "clone", "-b", "feature/agmods", REPO_URL])
-    print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
-else:
-    subprocess.check_call(["git", "-C", REPO_DIR, "pull"])
-    print(f"Found existing {REPO_DIR} directory - re-pulling")
 
-# Clone the WCISCC2025 repository if it doesn't exist
-REPO_URL = "https://github.com/olcf/wciscc2025"
-REPO_DIR = "wciscc2025"
-if not os.path.exists(REPO_DIR):
-    print(f"Cloning {REPO_URL}...")
-    subprocess.check_call(["git", "clone", REPO_URL])
-    print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
-else:
-    print(f"Found existing {REPO_DIR} directory")
 
-# Parse requirements from file
-# notice here no dependency on qiskit - its all in the qlsa requirements.txt, meaning,
-# its their dependent version of qiskit etc
-req_file = os.path.join(REPO_DIR, 'qlsa', 'requirements.txt')
-dependencies = []
+def clone_fvm_repo():
+    """Clone the fvm euler 1d repository if it doesn't exist."""
+    git_user_key = os.environ.get("GIT_USER_KEY")
+    if not git_user_key:
+        # You must set this environment variable for the installation to work
+        raise ValueError("GIT_USER_KEY environment variable is not set - use 'user:key' format")
+    # Construct authenticated URL from base URL
+    repo_host = REPO_URL_BASE.replace("https://", "")
+    REPO_URL = os.environ.get("FVM_REPO_URL",
+        f"https://{git_user_key}@{repo_host}")
+    if not os.path.exists(REPO_DIR):
+        print(f"Cloning {REPO_URL}...")
+        subprocess.check_call(["git", "clone", "-b", REPO_BRANCH, REPO_URL])
+        print(f"Successfully cloned {REPO_URL} to {REPO_DIR}")
+    else:
+        subprocess.check_call(["git", "-C", REPO_DIR, "pull"])
+        print(f"Found existing {REPO_DIR} directory - re-pulling")
 
-if os.path.exists(req_file):
-    with open(req_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#'):
-                dependencies.append(line)
-    print(f"Found {len(dependencies)} dependencies in {req_file}")
-else:
-    print(f"Warning: {req_file} not found!")
 
-extra_depends = [
-    "setuptools",
-    "numpy",
-    "scipy",
-    "toml",
-    "qtlib"
-]
+def install_fvm_solver():
+    """Ensure fvm_euler_1d_solver is installed with all dependencies.
+    
+    When fvm-euler-1d-solver is listed as a dependency in pyproject.toml,
+    uv sync will automatically install it and its dependencies from setup.py
+    (which reads from requirements.txt). This function ensures the repo is
+    up to date before uv sync runs.
+    """
+    if os.path.exists(REPO_DIR):
+        # Update the repo if it exists
+        subprocess.check_call(["git", "-C", REPO_DIR, "pull"])
+        print(f"Updated {REPO_DIR} directory")
+        print("fvm_euler_1d_solver will be installed via uv sync from pyproject.toml")
 
-dependencies.extend(extra_depends)
 
-# Dynamic dependency configuration
+class PostInstallCommand(install):
+    """Post-installation command that clones and installs fvm solver."""
+    
+    def run(self):
+        clone_fvm_repo()
+        install_fvm_solver()
+        super().run()
+
+
+class PostDevelopCommand(develop):
+    """Post-development installation command that clones and installs fvm solver."""
+    
+    def run(self):
+        clone_fvm_repo()
+        install_fvm_solver()
+        super().run()
+
+
 setup(
     packages=['qt05_fvm_euler_1d'],
     package_dir={'': '.'},
-    install_requires=dependencies
+    cmdclass={
+        'install': PostInstallCommand,
+        'develop': PostDevelopCommand,
+    },
 )

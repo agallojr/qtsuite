@@ -7,13 +7,20 @@ name = "qt05-cfd-fvm-euler-1d"
 version = "0.1.0"
 description = "euler 1d"
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.12,<3.14"
 
-# Declare that dependencies will also come from setup.py
-dynamic = ["dependencies"]
+dependencies = [
+    "setuptools",
+    "numpy",
+    "scipy",
+    "toml",
+    "qtlib",
+    "fvm-euler-1d-solver",
+]
 
 [tool.uv.sources]
 qtlib = { path = "../../qtlib", editable = true }
+fvm-euler-1d-solver = { path = "./fvm_euler_1d_solver", editable = true }
 
 [tool.setuptools]
 packages = {find = {where = [".",]}}
