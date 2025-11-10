@@ -38,6 +38,8 @@ def wf_time_solver(wfId: str,
         args_list.extend(["-initers", str(caseArgs['max_inner_iters'])])
     if caseArgs.get('localdt', False):
         args_list.append("-localdt")
+    if caseArgs.get('hhl_scale'):
+        args_list.extend(["-hhl_scale", caseArgs['hhl_scale']])
     args_list.extend(["-backend", caseArgs.get('backend', 'ideal')])
     shots = caseArgs.get('shots', 0)
     if shots > 0:

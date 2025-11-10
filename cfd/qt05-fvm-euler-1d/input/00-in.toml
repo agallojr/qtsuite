@@ -4,12 +4,14 @@ savedir = "~/.lwfm/out/fvm-euler-1d-solver"
 hideplots = true
 dump_matrices = false
 
+localdt = true
+hhl_scale = "leastsq"       # or "true_sol"
 linsolver = "HHL"
 
 [case0]
-nelem = 5
-backend = "ideal"
-shots = 0                   # should run idealized estimation
+nelem = 2
+backend = "fake fake_brisbane"   # "ideal", "fake fake_brisbane", "fake fake_torino"
+shots = 100                      # should run idealized estimation
 max_iters = 5
 max_inner_iters = 1
 
