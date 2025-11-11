@@ -1,0 +1,19 @@
+[global]
+solver_path = "./fvm_euler_1d_solver/nozzle_1d_solver.py"       
+savedir = "~/.lwfm/out/fvm-euler-1d-solver"                   
+hideplots = true
+dump_matrices = false
+
+localdt = true
+hhl_scale = "leastsq"       # or "true_sol"
+linsolver = "HHL"
+
+# Chunked iterations settings
+chunked_iters = true        # Enable chunked execution with checkpoint/resume (1 iter per chunk)
+
+[case0]
+nelem = 2
+backend = "ideal"                # "ideal", "fake fake_brisbane", "fake fake_torino"
+shots = 1000                      # should run idealized estimation
+max_iters = 3                    # Total iterations (will be split into chunks)
+max_inner_iters = 1
