@@ -10,6 +10,11 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
+# Activate virtual environment if it exists
+if [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate
+fi
+
 INPUT_FILE="$1"
 
 if [ ! -f "$INPUT_FILE" ]; then
