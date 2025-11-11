@@ -20,8 +20,9 @@ dependencies = [
 
 [tool.uv.sources]
 qtlib = { path = "../../qtlib", editable = true }
-# fvm-euler-1d-solver will be cloned by setup.py when this package is installed
-fvm-euler-1d-solver = { path = "./fvm_euler_1d_solver", editable = true }
+# For private repo: set GIT_USER_KEY="username:token" in environment
+# uv will use git credential helper or you can use: git config --global url."https://${GIT_USER_KEY}@github.com/".insteadOf "https://github.com/"
+fvm-euler-1d-solver = { git = "https://github.com/mhawwary/fvm_euler_1d_solver", branch = "feature/qiskit-hhl-2" }
 
 [tool.setuptools]
 packages = {find = {where = [".",]}}
