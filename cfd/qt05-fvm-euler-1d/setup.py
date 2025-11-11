@@ -7,9 +7,14 @@ The git clone happens when this module is imported during the build process.
 
 import os
 import subprocess
+import sys
 from setuptools import setup
 from setuptools.command.develop import develop
 from setuptools.command.install import install
+from setuptools.command.build_py import build_py
+
+# Clone the repo immediately when setup.py is executed
+# This ensures it's available before uv tries to resolve dependencies
 
 # Repository configuration
 REPO_BRANCH = "feature/qiskit-hhl-2"
@@ -69,11 +74,29 @@ class PostDevelopCommand(develop):
         super().run()
 
 
+class BuildPyCommand(build_py):
+    """Custom build command that clones fvm solver before building."""
+    
+    def run(self):
+        clone_fvm_repo()
+        super().run()
+
+
+# Clone immediately when setup.py is executed (before uv tries to resolve paths)
+if __name__ != '__main__' and 'fvm_euler_1d_solver' not in sys.modules:
+    try:
+        clone_fvm_repo()
+    except Exception as e:
+        print(f"Warning: Could not clone fvm_euler_1d_solver: {e}")
+        print("Make sure GIT_USER_KEY environment variable is set")
+
+
 setup(
     packages=['qt05_fvm_euler_1d'],
     package_dir={'': '.'},
     cmdclass={
         'install': PostInstallCommand,
         'develop': PostDevelopCommand,
+        'build_py': BuildPyCommand,
     },
 )
