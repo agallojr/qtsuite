@@ -1,0 +1,11 @@
+import skqd_helpers
+
+inst = \
+    "crn:v1:bluemix:public:quantum-computing:us-east:a/e2e570bc5af249dc9d81711cc2febac7:b1404376-8dd2-4d80-a845-173b68c9fa37::"
+token = "421HJnwBHQfy4lVpNKqIawLn7gpklVHMLu3pF4x-DaMY"
+from qiskit_ibm_runtime import QiskitRuntimeService
+
+service = QiskitRuntimeService.save_account(token=token, instance=inst, name="qdc-2025",
+    overwrite=True)
+
+
