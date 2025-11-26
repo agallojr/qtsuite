@@ -1,0 +1,52 @@
+# Clean shots study - density_matrix_sim_aer (shot noise only, no gate errors)
+# Hele-Shaw 2x2, 3x3, 4x4
+
+[global]
+
+max_condition_number = 1e6
+run_circuit = true
+postprocess = true
+
+warmup_sites = false
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+case = "hele-shaw"
+
+# Physical parameters
+D = 1
+L = 1
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+mu = 1.0
+rho = 1
+var = "pressure"
+
+[hs_2x2]
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 2
+ny = 2
+NQ_MATRIX = 2
+
+[hs_3x3]
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 3
+ny = 3
+NQ_MATRIX = 2
+
+[hs_4x4]
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 4
+ny = 4
+NQ_MATRIX = 2

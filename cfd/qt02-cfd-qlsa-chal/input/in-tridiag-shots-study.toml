@@ -1,0 +1,36 @@
+# Clean shots study - density_matrix_sim_aer (shot noise only, no gate errors)
+# Tridiagonal NQ=2, NQ=4, NQ=5 to match Hele-Shaw comparison
+
+[global]
+
+max_condition_number = 1e6
+run_circuit = true
+postprocess = true
+
+warmup_sites = false
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = true
+noise_model = "heron"  # IBM Heron/Boston-class noise (0.02% 1Q, 0.3% 2Q)
+
+case = "sample-tridiag"
+
+[tridiag_nq2]
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2
+
+[tridiag_nq4]
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 4
+
+[tridiag_nq5]
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 5

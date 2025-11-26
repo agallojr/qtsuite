@@ -316,6 +316,10 @@ def plot_qlsa_generic(
             classical_sol = case['classical_solution']
             quantum_sol = case['quantum_solution']
 
+            # Skip cases with missing solutions
+            if classical_sol is None or quantum_sol is None:
+                continue
+
             # Calculate fidelity
             classical_norm = np.linalg.norm(classical_sol)
             quantum_norm = np.linalg.norm(quantum_sol)

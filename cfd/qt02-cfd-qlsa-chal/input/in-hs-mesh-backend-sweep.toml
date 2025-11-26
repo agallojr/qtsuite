@@ -1,0 +1,84 @@
+
+# Hele-Shaw mesh size and backend sweep
+# Fixed geometry, varying mesh resolution and backends with shot counts
+
+[global]
+
+max_condition_number = 1e4
+run_circuit = true
+postprocess = true
+
+warmup_sites = true
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# ORNL CFD case variables - fixed geometry
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+rho = 1
+case = "hele-shaw"
+var = "pressure"
+L = 1
+D = 1
+
+# Statevector backend - 2x2 mesh
+[hs_sv_2x2]
+qc_backend = "statevector_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 2
+ny = 2
+mu = 1.0
+NQ_MATRIX = 2
+
+# Statevector backend - 3x3 mesh
+[hs_sv_3x3]
+qc_backend = "statevector_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 3
+ny = 3
+mu = 1.0
+NQ_MATRIX = 2
+
+# Statevector backend - 4x4 mesh
+[hs_sv_4x4]
+qc_backend = "statevector_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 4
+ny = 4
+mu = 1.0
+NQ_MATRIX = 2
+
+# Brisbane simulator - 2x2 mesh
+[hs_brisbane_2x2]
+qc_backend = "ibm_brisbane"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 2
+ny = 2
+mu = 1.0
+NQ_MATRIX = 2
+
+# Brisbane simulator - 3x3 mesh
+[hs_brisbane_3x3]
+qc_backend = "ibm_brisbane"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 3
+ny = 3
+mu = 1.0
+NQ_MATRIX = 2
+
+# Brisbane simulator - 4x4 mesh
+[hs_brisbane_4x4]
+qc_backend = "ibm_brisbane"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 4
+ny = 4
+mu = 1.0
+NQ_MATRIX = 2

@@ -1,0 +1,40 @@
+
+# Simple Hele-Shaw test case
+
+[global]
+
+max_condition_number = 1e4
+run_circuit = true
+postprocess = true
+
+# sites
+warmup_sites = true
+show_plot = false
+qc_backend = "statevector_sim_aer"
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# ORNL CFD case variables
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+rho = 1
+case = "hele-shaw"
+var = "pressure"
+
+L = 1
+D = 1
+NQ_MATRIX = 2
+
+# Simple Hele-Shaw case
+[simple_hs]
+qc_shots = 10000
+nx = 2
+ny = 2
+mu = 1.0

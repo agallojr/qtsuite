@@ -1,0 +1,75 @@
+# Circuit scaling study: matrix size, circuit properties, condition number
+# Mesh sizes: 2x2, 3x3, 4x4, 5x5, 6x6
+# Circuit construction + transpile only, no execution
+
+[global]
+
+max_condition_number = 1e6
+run_circuit = false  # Skip execution phase
+postprocess = false  # Skip postprocessing
+
+warmup_sites = false  # Already warmed up
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# ORNL CFD case variables - fixed geometry
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+rho = 1
+case = "hele-shaw"
+var = "pressure"
+L = 1
+D = 1
+
+# 2x2 mesh
+[scaling_2x2]
+qc_backend = "statevector_sim_aer"
+qc_shots = 100
+nx = 2
+ny = 2
+mu = 1.0
+NQ_MATRIX = 2
+
+# 3x3 mesh
+[scaling_3x3]
+qc_backend = "statevector_sim_aer"
+qc_shots = 100
+nx = 3
+ny = 3
+mu = 1.0
+NQ_MATRIX = 2
+
+# 4x4 mesh
+[scaling_4x4]
+qc_backend = "statevector_sim_aer"
+qc_shots = 100
+nx = 4
+ny = 4
+mu = 1.0
+NQ_MATRIX = 2
+
+# 5x5 mesh
+[scaling_5x5]
+qc_backend = "statevector_sim_aer"
+qc_shots = 100
+nx = 5
+ny = 5
+mu = 1.0
+NQ_MATRIX = 2
+
+# 6x6 mesh
+[scaling_6x6]
+qc_backend = "statevector_sim_aer"
+qc_shots = 100
+nx = 6
+ny = 6
+mu = 1.0
+NQ_MATRIX = 2

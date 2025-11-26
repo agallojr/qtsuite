@@ -1,0 +1,42 @@
+# Noise study: Tridiag NQ=2 and Hele-Shaw 2x2 with Heron noise
+# Shots: 100, 1K, 10K, 100K
+
+[global]
+run_circuit = true
+postprocess = true
+
+warmup_sites = false
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = true
+noise_model = "heron"  # IBM Heron/Boston-class noise (0.02% 1Q, 0.3% 2Q)
+
+# Tridiagonal NQ=2 (7 qubits, 3.4K depth)
+[tridiag_nq2]
+case = "sample-tridiag"
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2
+
+# Hele-Shaw 2x2 (953 depth)
+[hs_2x2]
+case = "hele-shaw"
+qc_backend = "matrix_product_state_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 2
+ny = 2
+NQ_MATRIX = 2
+D = 1
+L = 1
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+mu = 1.0
+rho = 1
+var = "pressure"

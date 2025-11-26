@@ -1,0 +1,39 @@
+
+# Test multiple list parameters - should create 2x3 = 6 cases
+
+[global]
+
+max_condition_number = 1e4
+run_circuit = true
+postprocess = false
+
+warmup_sites = true
+show_plot = false
+qc_backend = "statevector_sim_aer"
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# ORNL CFD case variables
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+rho = 1
+case = "hele-shaw"
+var = "pressure"
+
+L = 1
+D = 1
+NQ_MATRIX = 2
+
+# Multi-range test: 2 shot values × 3 mu values = 6 cases
+[multi_range_test]
+qc_shots = [1000, 5000]
+nx = 2
+ny = 2
+mu = [0.5, 1.0, 2.0]

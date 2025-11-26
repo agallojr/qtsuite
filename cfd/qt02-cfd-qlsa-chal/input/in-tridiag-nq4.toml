@@ -1,0 +1,24 @@
+# Tridiagonal NQ=4 case (11 qubits, 16x16 matrix)
+
+[global]
+
+max_condition_number = 1e6
+run_circuit = true
+postprocess = true
+
+warmup_sites = false
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+case = "sample-tridiag"
+
+[tridiag_nq4]
+qc_backend = "statevector_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 4

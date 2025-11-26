@@ -1,0 +1,34 @@
+# Tridiagonal comparison study
+# Run tridiagonal cases with NQ_MATRIX matching Hele-Shaw mesh equivalents
+# Statevector backend with same shot series as Hele-Shaw experiment
+
+[global]
+
+max_condition_number = 1e6
+run_circuit = true
+postprocess = true
+
+warmup_sites = false  # Already warmed up
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+# Tridiagonal case
+case = "sample-tridiag"
+
+# Tridiagonal - NQ_MATRIX=2 (equivalent to 2x2 Hele-Shaw)
+[tridiag_nq2]
+qc_backend = "statevector_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 2
+
+# Tridiagonal - NQ_MATRIX=5 (equivalent to 3x3, 4x4, 5x5 Hele-Shaw)
+[tridiag_nq5]
+qc_backend = "statevector_sim_aer"
+qc_shots = [100, 1000, 10000, 100000]
+NQ_MATRIX = 5

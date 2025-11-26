@@ -1,0 +1,36 @@
+# Hele-Shaw 2x2 on real IBM Fez (Heron-class)
+# Shots: 100, 1K, 10K
+
+[global]
+run_circuit = true
+postprocess = true
+
+warmup_sites = false
+show_plot = false
+
+preprocess_site = "frontier-qlsa"
+circuit_hhl_path = "~/proj/src/frontier-qlsa/circuit_HHL.py"
+savedir = "/Users/agallojr/.lwfm/out/qt02-cfd/"
+
+exec_site = "ibm-quantum"
+sim_custom_noise = false
+
+case = "hele-shaw"
+
+# Physical parameters
+D = 1
+L = 1
+P_in = 200
+P_out = 0
+U_top = 0
+U_bottom = 0
+mu = 1.0
+rho = 1
+var = "pressure"
+
+[hs_fez_2x2]
+qc_backend = "ibm_fez"
+qc_shots = [100, 1000, 10000, 100000]
+nx = 2
+ny = 2
+NQ_MATRIX = 2

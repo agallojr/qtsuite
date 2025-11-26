@@ -4,13 +4,14 @@ Main workflow execution logic for QLSA challenge.
 
 #pylint: disable=wrong-import-position, invalid-name, superfluous-parens
 #pylint: disable=multiple-statements, broad-exception-caught
-#pylint: disable=redefined-outer-name, consider-using-enumerate, consider-iterating-dictionary
+#pylint: disable=redefined-outer-name, consider-using-enumerate
+#pylint: disable=consider-iterating-dictionary
 
 import sys
+import os
 from pathlib import Path
 from typing import cast
 import pickle
-from datetime import datetime
 import time
 
 from qiskit.result import Result as QiskitJobResult
@@ -24,13 +25,18 @@ from lwfm.midware.LwfManager import lwfManager, logger
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 
-from qtlib import get_cases_args
+from qtlib import get_cases_args, log_with_time
 from noise import add_custom_noise
 
 
-def run_workflow():
+def run_workflow(workflow_toml):
     """
     Execute the main workflow for all cases.
+    
+    Parameters
+    ----------
+    workflow_toml : str
+        Path to the TOML configuration file
     
     Returns
     -------
@@ -39,33 +45,12 @@ def run_workflow():
          casesArgs, globalArgs, exec_status)
     """
     workflow_start_time = time.time()
-    last_time = workflow_start_time
-
-    def log_with_time(message, case_start=None):
-        nonlocal last_time
-        current_time = time.time()
-        delta = current_time - last_time
-        cumulative = current_time - workflow_start_time
-        timestamp = datetime.now().strftime("%H:%M:%S")
-
-        if case_start is not None:
-            case_cumulative = current_time - case_start
-            logger.info(
-                f"[{timestamp}] [T+{cumulative:.2f}s] "
-                f"[C+{case_cumulative:.2f}s] [Δ{delta:.2f}s] {message}"
-            )
-        else:
-            logger.info(
-                f"[{timestamp}] [T+{cumulative:.2f}s] "
-                f"[Δ{delta:.2f}s] {message}"
-            )
-        last_time = current_time
 
     # ******************************************************************************
     # get the arguments for the cases in this workflow from the TOML file
 
-    log_with_time("Starting workflow - loading case arguments")
-    casesArgs = get_cases_args()
+    log_with_time("Starting workflow - loading case arguments", [workflow_start_time])
+    casesArgs = get_cases_args(workflow_toml)
     globalArgs = casesArgs["global"]
 
     # Log case expansion info
@@ -75,26 +60,36 @@ def run_workflow():
         logger.info(f"  - {case_id}: {casesArgs[case_id]}")
 
     # make an lwfm workflow to bundle all these cases
-    log_with_time("Creating workflow object")
+    log_with_time("Creating workflow object", [workflow_start_time])
     wf = Workflow("winter challenge", "ornl winter challenge", globalArgs)
     if (wf := lwfManager.putWorkflow(wf)) is None: sys.exit(1)
-    log_with_time(f"Registered workflow {wf.getWorkflowId()}")
+    log_with_time(f"Registered workflow {wf.getWorkflowId()}", [workflow_start_time])
 
     # modify the output directory name to include the workflow ID
     globalArgs["savedir"] = globalArgs["savedir"] + "/" + str(wf.getWorkflowId())
     # will be altered per case, so keep a copy of the root
     keepSaveDir = globalArgs["savedir"]
 
+    # create workflow output directory
+    workflow_out_dir = Path(keepSaveDir).expanduser()
+    workflow_out_dir.mkdir(parents=True, exist_ok=True)
+
     # warm up lwfm sandboxes we use by updating their respective dependencies
     if globalArgs.get("warmup_sites", True):
-        log_with_time("Warming up lwfm sites (updating dependencies)")
+        log_with_time("Warming up lwfm sites (updating dependencies)", [workflow_start_time])
         lwfManager.updateSite()  # this projct folder ("./.venv")
         lwfManager.updateSite(globalArgs["preprocess_site"])  # circuits
         lwfManager.updateSite(globalArgs["exec_site"])  # runs circuits
-        log_with_time("Site warmup complete")
+        log_with_time("Site warmup complete", [workflow_start_time])
 
+    logger.info(f"DEBUG: Attempting to get preprocess_site: {globalArgs['preprocess_site']}")
     preprocess_site = lwfManager.getSite(globalArgs["preprocess_site"])
+    logger.info(f"DEBUG: preprocess_site result: {preprocess_site}")
+    logger.info(f"DEBUG: preprocess_site type: {type(preprocess_site)}")
+    
+    logger.info(f"DEBUG: Attempting to get exec_site: {globalArgs['exec_site']}")
     exec_site = lwfManager.getSite(globalArgs["exec_site"])
+    logger.info(f"DEBUG: exec_site result: {exec_site}")
 
 
     # ******************************************************************************
@@ -110,6 +105,10 @@ def run_workflow():
     matrix = None       # the A in A x = b
     vector = None       # the b in A x = b
 
+    # Circuit cache: key is (case, NQ_MATRIX, nx, ny) -> (qpy_path, pkl_path)
+    # This avoids regenerating circuits when only shots differ
+    circuit_cache = {}
+
 
     # 0. populate ORNL code property file template for the case
     # 1. circuit generation
@@ -120,7 +119,7 @@ def run_workflow():
     # for each case in the workflow toml
     for caseId, caseArgs in ((k, v) for k, v in casesArgs.items() if k != "global"):
         case_start_time = time.time()
-        log_with_time(f"========== Starting case {caseId} ==========")
+        log_with_time(f"========== Starting case {caseId} ==========", [workflow_start_time])
 
         # get the args for this case and merge in the global args
         globalArgs["savedir"] = keepSaveDir + "/" + caseId
@@ -135,7 +134,7 @@ def run_workflow():
 
         log_with_time(
             f"[{caseId}] Phase 0: Populating ORNL input template",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
         # take the templatized ORNL input_vars.yaml, fill it in with
         # the case args, save it
@@ -164,14 +163,14 @@ def run_workflow():
         # associate the input_vars file with the workflow
         lwfManager.notatePut(out_path.as_posix(),
             JobContext().initialize("template", wf.getWorkflowId()), {"case": caseId})
-        log_with_time(f"[{caseId}] Input template created: {out_path}", case_start_time)
+        log_with_time(f"[{caseId}] Input template created: {out_path}", [workflow_start_time, case_start_time])
 
 
         # **************************************************************************
         # 1. circuit generation/preprocessing
 
         log_with_time(f"[{caseId}] Phase 1: Starting circuit generation/preprocessing",
-            case_start_time)
+            [workflow_start_time, case_start_time])
 
         # in circuit generation, we discretize the governing Hele-Shaw
         # equations into their Ax=B linear form. the matrix A represents
@@ -180,113 +179,137 @@ def run_workflow():
         # a casefile - in goes things like grid resolution, #qubits, etc.
         # and out comes a quantum circuit in a Qiskit-portable QPY format.
 
-        # run the ORNL code to take the CFD casefile and generate the
-        # circuit (.qpy), save its extra data (.pkl). we will not let it
-        # transpile the circuit, as we will do that in the execution step.
-
-        log_with_time(
-            f"[{caseId}] Submitting circuit generation job", case_start_time
+        # Build cache key from parameters that affect circuit (not shots)
+        cache_key = (
+            caseArgs.get('case'),
+            caseArgs.get('NQ_MATRIX'),
+            caseArgs.get('nx'),  # for hele-shaw
+            caseArgs.get('ny'),  # for hele-shaw
         )
-        preprocess_status = preprocess_site.getRunDriver().submit(
-            JobDefn(
-                f"python {caseArgs['circuit_hhl_path']}",
-                JobDefn.ENTRY_TYPE_SHELL,
-                [
-                    "-case", caseArgs['case'], "-casefile", str(out_path),
-                    "--savedata", "--no-transpile"
-                ]
-            ),
-            JobContext().initialize(
-                "preproc", wf.getWorkflowId(), preprocess_site.getSiteName()
+
+        # Check if we already have this circuit cached
+        if cache_key in circuit_cache:
+            circuit_qpy_path, circuit_pkl_path = circuit_cache[cache_key]
+            log_with_time(
+                f"[{caseId}] Using cached circuit: {circuit_qpy_path.name}",
+                [workflow_start_time, case_start_time]
             )
-        )
-        if (preprocess_status is None):
-            logger.error(f"Preprocess job submission failed {caseId}")
-            continue  # to next case
+            caseArgs['_time_circuit_generation'] = 0.0  # cached, no generation time
+            caseArgs['_circuit_cached'] = True
+        else:
+            # run the ORNL code to take the CFD casefile and generate the
+            # circuit (.qpy), save its extra data (.pkl). we will not let it
+            # transpile the circuit, as we will do that in the execution step.
+
+            log_with_time(
+                f"[{caseId}] Submitting circuit generation job", [workflow_start_time, case_start_time]
+            )
+            logger.info(f"DEBUG: About to submit job, preprocess_site is: {preprocess_site}")
+            if preprocess_site is None:
+                logger.error(f"[{caseId}] preprocess_site is None! Cannot submit job.")
+                logger.error(f"[{caseId}] Site name was: {globalArgs['preprocess_site']}")
+                continue
+            
+            circuit_gen_start = time.time()
+            preprocess_status = preprocess_site.getRunDriver().submit(
+                JobDefn(
+                    f"python {caseArgs['circuit_hhl_path']}",
+                    JobDefn.ENTRY_TYPE_SHELL,
+                    [
+                        "-case", caseArgs['case'], "-casefile", str(out_path),
+                        "--savedata", "--no-transpile"
+                    ]
+                ),
+                JobContext().initialize(
+                    "preproc", wf.getWorkflowId(), preprocess_site.getSiteName()
+                )
+            )
+            if (preprocess_status is None):
+                logger.error(f"Preprocess job submission failed {caseId}")
+                continue  # to next case
+            log_with_time(
+                f"[{caseId}] Waiting for circuit generation to complete",
+                [workflow_start_time, case_start_time]
+            )
+            preprocess_status = lwfManager.wait(preprocess_status.getJobId())
+            if (
+                (preprocess_status is None)
+                or (preprocess_status.getStatus() != JobStatus.COMPLETE)
+            ):
+                logger.error(f"Preprocess job failed {caseId}")
+                continue  # to next case
+            circuit_gen_time = time.time() - circuit_gen_start
+            caseArgs['_time_circuit_generation'] = circuit_gen_time
+            caseArgs['_circuit_cached'] = False
+            log_with_time(f"[{caseId}] Circuit generation complete ({circuit_gen_time:.2f}s)", [workflow_start_time, case_start_time])
+            lwfManager.notateGet(out_path.as_posix(), preprocess_status.getJobContext(),
+                {"case": caseId})
+
+            # locate the QPY file produced by the preprocess step. The wciscc2025
+            # code composes the filename based on the actual matrix size (may pad
+            # up to a power of two), so don't assume NQ_MATRIX from the TOML.
+            # pick the most recently modified QPY in case multiple exist
+            qpy_candidates = list(caseOutDir.glob(f"{caseArgs['case']}_circ_nqmatrix*.qpy"))
+            if not qpy_candidates:
+                logger.error(f"No generated .qpy found for {caseId} in {caseOutDir}")
+                continue  # to next case
+            circuit_qpy_path = max(qpy_candidates, key=lambda p: p.stat().st_mtime)
+            lwfManager.notatePut(
+                circuit_qpy_path.as_posix(),
+                preprocess_status.getJobContext(),
+                {"case": caseId}
+            )
+            # pick the most recently modified PKL in case multiple exist
+            pkl_candidates = list(
+                caseOutDir.glob(f"{caseArgs['case']}_circ_nqmatrix*.pkl")
+            )
+            if not pkl_candidates:
+                logger.error(f"No generated .pkl found for {caseId} in {caseOutDir}")
+                continue  # to next case
+            circuit_pkl_path = max(pkl_candidates, key=lambda p: p.stat().st_mtime)
+            lwfManager.notatePut(
+                circuit_pkl_path.as_posix(),
+                preprocess_status.getJobContext(),
+                {"case": caseId}
+            )
+            log_with_time(
+                f"[{caseId}] Located circuit files: {circuit_qpy_path.name}",
+                [workflow_start_time, case_start_time]
+            )
+
+            # Cache the circuit paths for reuse
+            circuit_cache[cache_key] = (circuit_qpy_path, circuit_pkl_path)
+            log_with_time(
+                f"[{caseId}] Cached circuit for key {cache_key}",
+                [workflow_start_time, case_start_time]
+            )
+
+        # Note: We don't load the circuit here in qt02's venv.
+        # The QPY file is passed directly to ibm-site which will load,
+        # transpile, and execute it. We'll get circuit metadata from
+        # the transpiled version later.
         log_with_time(
-            f"[{caseId}] Waiting for circuit generation to complete",
-            case_start_time
+            f"[{caseId}] Circuit QPY ready for execution site",
+            [workflow_start_time, case_start_time]
         )
-        preprocess_status = lwfManager.wait(preprocess_status.getJobId())
-        if (
-            (preprocess_status is None)
-            or (preprocess_status.getStatus() != JobStatus.COMPLETE)
-        ):
-            logger.error(f"Preprocess job failed {caseId}")
-            continue  # to next case
-        log_with_time(f"[{caseId}] Circuit generation complete", case_start_time)
-        lwfManager.notateGet(out_path.as_posix(), preprocess_status.getJobContext(),
-            {"case": caseId})
-
-        # locate the QPY file produced by the preprocess step. The wciscc2025
-        # code composes the filename based on the actual matrix size (may pad
-        # up to a power of two), so don't assume NQ_MATRIX from the TOML.
-        # pick the most recently modified QPY in case multiple exist
-        qpy_candidates = list(caseOutDir.glob(f"{caseArgs['case']}_circ_nqmatrix*.qpy"))
-        if not qpy_candidates:
-            logger.error(f"No generated .qpy found for {caseId} in {caseOutDir}")
-            continue  # to next case
-        circuit_qpy_path = max(qpy_candidates, key=lambda p: p.stat().st_mtime)
-        lwfManager.notatePut(
-            circuit_qpy_path.as_posix(),
-            preprocess_status.getJobContext(),
-            {"case": caseId}
-        )
-        # pick the most recently modified PKL in case multiple exist
-        pkl_candidates = list(
-            caseOutDir.glob(f"{caseArgs['case']}_circ_nqmatrix*.pkl")
-        )
-        if not pkl_candidates:
-            logger.error(f"No generated .qpy found for {caseId} in {caseOutDir}")
-            continue  # to next case
-        circuit_pkl_path = max(pkl_candidates, key=lambda p: p.stat().st_mtime)
-        lwfManager.notatePut(
-            circuit_pkl_path.as_posix(),
-            preprocess_status.getJobContext(),
-            {"case": caseId}
-        )
-        log_with_time(
-            f"[{caseId}] Located circuit files: {circuit_qpy_path.name}",
-            case_start_time
-        )
-
-        # Load and analyze the circuit
-        with open(circuit_qpy_path, "rb") as f:
-            circuits = qpy_load(f)
-            circuit = circuits[0] if isinstance(circuits, list) else circuits
-
-        # Get circuit properties
-        num_qubits_circuit = circuit.num_qubits
-        circuit_depth = circuit.depth()
-        circuit_size = circuit.size()  # total number of gates
-        num_ops = len(circuit.count_ops())  # number of unique gate types
-
-        # Log input parameters vs circuit properties
-        logger.info(
-            f"[{caseId}] Input parameters: NQ_MATRIX={caseArgs['NQ_MATRIX']}, "
-            f"nx={caseArgs['nx']}, ny={caseArgs['ny']}"
-        )
-        logger.info(
-            f"[{caseId}] Circuit properties: qubits={num_qubits_circuit}, "
-            f"depth={circuit_depth}, gates={circuit_size}, "
-            f"gate_types={num_ops}"
-        )
-        logger.info(f"[{caseId}] Gate breakdown: {circuit.count_ops()}")
-        log_with_time(
-            f"[{caseId}] Circuit loaded: {num_qubits_circuit} qubits, "
-            f"depth={circuit_depth}, {circuit_size} gates",
-            case_start_time
-        )
+        
+        # Placeholder values - will be filled from transpiled circuit
+        num_qubits_circuit = None
+        circuit_depth = None
+        circuit_size = None
 
         # get the matrix and vector from the PKL
         log_with_time(
             f"[{caseId}] Loading matrix data and computing classical solution",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
         with open(circuit_pkl_path, "rb") as f:
             pkl_data = pickle.load(f)
             matrix = pkl_data["matrix"]
             vector = pkl_data["vector"]
+            # Capture circuit construction time from frontier-qlsa
+            if 't_circ' in pkl_data:
+                caseArgs['_time_circuit_construction'] = pkl_data['t_circ']
 
         # Load metadata to get original untransformed matrix
         # ORNL code saves as {case}_metadata.pkl, not {circuit_file}_metadata.pkl
@@ -344,13 +367,22 @@ def run_workflow():
             continue
 
         # Compare input parameters with actual circuit/matrix
-        grid_size = caseArgs['nx'] * caseArgs['ny']
-        logger.info(
-            f"[{caseId}] Comparison: grid_size={grid_size} (nx*ny), "
-            f"NQ_MATRIX={caseArgs['NQ_MATRIX']}, "
-            f"matrix_size={matrix.shape[0]}, "
-            f"circuit_qubits={num_qubits_circuit}"
-        )
+        # For hele-shaw, grid_size = nx*ny; for tridiagonal, use matrix size
+        if 'nx' in caseArgs and 'ny' in caseArgs:
+            grid_size = caseArgs['nx'] * caseArgs['ny']
+            logger.info(
+                f"[{caseId}] Comparison: grid_size={grid_size} (nx*ny), "
+                f"NQ_MATRIX={caseArgs.get('NQ_MATRIX', 'N/A')}, "
+                f"matrix_size={matrix.shape[0]}, "
+                f"circuit_qubits={num_qubits_circuit}"
+            )
+        else:
+            logger.info(
+                f"[{caseId}] Comparison: "
+                f"NQ_MATRIX={caseArgs.get('NQ_MATRIX', 'N/A')}, "
+                f"matrix_size={matrix.shape[0]}, "
+                f"circuit_qubits={num_qubits_circuit}"
+            )
 
         # Calculate classical solution to use as reference
         classical_solution_vector = np.linalg.solve(
@@ -362,7 +394,7 @@ def run_workflow():
         log_with_time(
             f"[{caseId}] Classical solution computed "
             f"(norm={classical_euclidean_norm:.6f})",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
 
 
@@ -376,7 +408,7 @@ def run_workflow():
             log_with_time(
                 f"[{caseId}] Phase 2: Transpiling circuit without execution "
                 f"(run_circuit=false)",
-                case_start_time
+                [workflow_start_time, case_start_time]
             )
             
             # Transpile the circuit to get transpiled depth
@@ -389,7 +421,7 @@ def run_workflow():
             
             log_with_time(
                 f"[{caseId}] Submitting transpile-only job",
-                case_start_time
+                [workflow_start_time, case_start_time]
             )
             exec_status = exec_site.getRunDriver().submit(
                 JobDefn(
@@ -451,17 +483,31 @@ def run_workflow():
             caseArgs['_circuit_gates'] = circuit_size
             caseArgs['_matrix_size'] = matrix.shape[0]
 
+            # Incremental save: write checkpoint for transpile-only cases
+            import json
+            checkpoint_data = {
+                'case_id': caseId,
+                'params': dict(caseArgs),
+                'quantum_solution': None,  # No execution in transpile-only mode
+                'classical_solution': classical_solution_vector.tolist() if classical_solution_vector is not None else None,
+                'metadata': caseArgs.get('_metadata', {})
+            }
+            checkpoint_file = Path(globalArgs["savedir"]).parent / f"checkpoint_{caseId}.json"
+            with open(checkpoint_file, 'w', encoding='utf-8') as f:
+                json.dump(checkpoint_data, f, indent=2)
+            logger.info(f"[{caseId}] Saved checkpoint to {checkpoint_file}")
+
             case_elapsed = time.time() - case_start_time
             log_with_time(
                 f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)",
-                case_start_time
+                [workflow_start_time, case_start_time]
             )
             continue
 
         log_with_time(
             f"[{caseId}] Phase 2: Starting circuit execution on "
             f"{caseArgs['qc_backend']}",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
 
         computeType = caseArgs["qc_backend"]    # simulators or real machines
@@ -472,19 +518,21 @@ def run_workflow():
             "optimization_level": 0,  # 0 none, 3 max, transpile opt
         }
 
-        if "_sim_aer" in computeType and caseArgs["sim_custom_noise"]:
-            custom_noise_model = add_custom_noise()
+        if "_sim_aer" in computeType and caseArgs.get("sim_custom_noise"):
+            noise_model_type = caseArgs.get("noise_model", "heron")
+            custom_noise_model = add_custom_noise(noise_model_type)
             runArgs["noise_model"] = lwfManager.serialize(custom_noise_model)
             log_with_time(
-                f"[{caseId}] Added custom noise model to simulation",
-                case_start_time
+                f"[{caseId}] Added {noise_model_type} noise model to simulation",
+                [workflow_start_time, case_start_time]
             )
 
         log_with_time(
             f"[{caseId}] Submitting circuit execution job "
             f"({caseArgs['qc_shots']} shots)",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
+        exec_start = time.time()
         exec_status = exec_site.getRunDriver().submit(
             JobDefn(
                 circuit_qpy_path.as_posix(),  # run this circuit
@@ -504,7 +552,7 @@ def run_workflow():
             continue    # to next case
         log_with_time(
             f"[{caseId}] Waiting for circuit execution to complete",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
         exec_status = lwfManager.wait(exec_status.getJobId())
         if (
@@ -513,7 +561,9 @@ def run_workflow():
         ):
             logger.error(f"Circuit execution job failed {caseId}")
             continue    # to next case
-        log_with_time(f"[{caseId}] Circuit execution complete", case_start_time)
+        exec_time = time.time() - exec_start
+        caseArgs['_time_execution'] = exec_time
+        log_with_time(f"[{caseId}] Circuit execution complete ({exec_time:.2f}s)", [workflow_start_time, case_start_time])
         lwfManager.notateGet(circuit_qpy_path.as_posix(), exec_status.getJobContext(),
             {"case": caseId})
 
@@ -521,7 +571,22 @@ def run_workflow():
         # **************************************************************************
         # 3. per-case postprocess step
 
-        log_with_time(f"[{caseId}] Phase 3: Post-processing results", case_start_time)
+        # Check if we should do post-processing
+        do_postprocess = caseArgs.get('postprocess', True)
+
+        if not do_postprocess:
+            log_with_time(
+                f"[{caseId}] Skipping post-processing (postprocess=false)",
+                [workflow_start_time, case_start_time]
+            )
+            case_elapsed = time.time() - case_start_time
+            log_with_time(
+                f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)",
+                [workflow_start_time, case_start_time]
+            )
+            continue
+
+        log_with_time(f"[{caseId}] Phase 3: Post-processing results", [workflow_start_time, case_start_time])
 
         result = cast(
             QiskitJobResult, lwfManager.deserialize(exec_status.getNativeInfo())
@@ -545,10 +610,18 @@ def run_workflow():
                     )
                     transpiled_depth = transpiled_circuit.depth()
                     transpiled_size = transpiled_circuit.size()
+                    # Get original circuit metadata from transpiled circuit
+                    # (since we skipped loading the original QPY in qt02)
+                    num_qubits_circuit = transpiled_circuit.num_qubits
+                    # Note: transpiled depth/size may differ from original
+                    # We'll use transpiled values for both
+                    circuit_depth = transpiled_depth
+                    circuit_size = transpiled_size
                     # Save transpiled metrics
                     caseArgs['_circuit_gates_transpiled'] = transpiled_size
                     logger.info(
                         f"[{caseId}] Transpiled circuit: "
+                        f"qubits={num_qubits_circuit}, "
                         f"depth={transpiled_depth}, gates={transpiled_size}"
                     )
                     logger.info(
@@ -635,7 +708,7 @@ def run_workflow():
         logger.info(f"Case {caseId}, Solution vector: {solvec_hhl}")
         log_with_time(
             f"[{caseId}] Quantum solution extracted and normalized",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
 
         # write result to file in case directory
@@ -662,10 +735,24 @@ def run_workflow():
         )
         caseArgs['_matrix_size'] = matrix.shape[0]
 
+        # Incremental save: write checkpoint after each case completes
+        import json
+        checkpoint_data = {
+            'case_id': caseId,
+            'params': dict(caseArgs),
+            'quantum_solution': solvec_hhl.tolist() if solvec_hhl is not None else None,
+            'classical_solution': classical_solution_vector.tolist() if classical_solution_vector is not None else None,
+            'metadata': caseArgs.get('_metadata', {})
+        }
+        checkpoint_file = Path(globalArgs["savedir"]).parent / f"checkpoint_{caseId}.json"
+        with open(checkpoint_file, 'w', encoding='utf-8') as f:
+            json.dump(checkpoint_data, f, indent=2)
+        logger.info(f"[{caseId}] Saved checkpoint to {checkpoint_file}")
+
         case_elapsed = time.time() - case_start_time
         log_with_time(
             f"[{caseId}] Case complete (case time: {case_elapsed:.2f}s)",
-            case_start_time
+            [workflow_start_time, case_start_time]
         )
 
         # **************************************************************************
@@ -674,9 +761,18 @@ def run_workflow():
 
     workflow_elapsed = time.time() - workflow_start_time
     log_with_time(
-        f"End of case iterations (total workflow time: {workflow_elapsed:.2f}s)"
+        f"End of case iterations (total workflow time: {workflow_elapsed:.2f}s)",
+        [workflow_start_time]
     )
-    log_with_time("Ready for workflow post-processing")
+    log_with_time("Ready for workflow post-processing", [workflow_start_time])
+
+    # create symlink to workflow logs
+    lwfm_log_dir = Path.home() / ".lwfm" / "logs" / str(wf.getWorkflowId())
+    if lwfm_log_dir.exists():
+        log_symlink = workflow_out_dir / "workflow.log"
+        if not log_symlink.exists():
+            os.symlink(lwfm_log_dir, log_symlink)
+            logger.info(f"Created log symlink: {log_symlink} -> {lwfm_log_dir}")
 
     return (
         wf, caseResults, quantum_solutions, classical_solutions,
