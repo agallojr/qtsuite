@@ -18,6 +18,8 @@ Reference information for the workflow runs used in the comparison analysis.
 | `058cf139` | Nov 25 22:16 | **Hele-Shaw 2x2 on IBM Torino run2 (real hardware)** - shots [100, 1K, 10K, 100K] |
 | `ea21306c` | Nov 25 22:21 | **Hele-Shaw 2x2 on IBM Torino run3 (real hardware)** - shots [100, 1K, 10K, 100K] |
 | `8097a5fe` | Nov 25 22:47 | **Hele-Shaw 2x2 on IBM Torino run4 (real hardware)** - shots [100, 1K, 10K, 100K] |
+| `4f765788` | Nov 26 14:37 | **Hele-Shaw 2x2 Heron noise sim (4 runs)** - density_matrix, generic Heron noise |
+| `0e63f2d8` | Nov 26 14:45 | **Hele-Shaw 2x2 ibm_torino_aer (4 runs)** - AerSimulator.from_backend with real calibration |
 
 ## Directory Paths
 
@@ -34,6 +36,8 @@ Reference information for the workflow runs used in the comparison analysis.
 /Users/agallojr/.lwfm/out/qt02-cfd/058cf139/  # Hele-Shaw 2x2 on IBM Torino run2 (real)
 /Users/agallojr/.lwfm/out/qt02-cfd/ea21306c/  # Hele-Shaw 2x2 on IBM Torino run3 (real)
 /Users/agallojr/.lwfm/out/qt02-cfd/8097a5fe/  # Hele-Shaw 2x2 on IBM Torino run4 (real)
+/Users/agallojr/.lwfm/out/qt02-cfd/4f765788/  # Hele-Shaw 2x2 Heron noise sim (4 runs)
+/Users/agallojr/.lwfm/out/qt02-cfd/0e63f2d8/  # Hele-Shaw 2x2 ibm_torino_aer (4 runs)
 ```
 
 ## Data Sources for Comparison Plot
@@ -98,6 +102,14 @@ Reference information for the workflow runs used in the comparison analysis.
 - Results: Fidelity ~90-94%, consistently high across all shot counts
 - Best performing run of the 4 Torino runs
 
+### 4f765788 (Hele-Shaw 2x2 Heron Noise Sim - 4 runs)
+- 4 independent runs with generic Heron noise model (density_matrix backend)
+- Results: Fidelity ~98-99.8%, very tight CI (σ=0.006)
+
+### 0e63f2d8 (Hele-Shaw 2x2 ibm_torino_aer - 4 runs)
+- 4 independent runs using AerSimulator.from_backend(ibm_torino) with real calibration
+- Results: Fidelity ~98-99%, slightly more variability than generic Heron (σ=0.009)
+
 ### Key Findings
 - Circuit depth is the dominant factor in noise-induced fidelity loss
 - Tridiag NQ=2 (3.4K depth): ~20% fidelity loss with Heron noise sim
@@ -108,6 +120,16 @@ Reference information for the workflow runs used in the comparison analysis.
 - Non-monotonic fidelity vs shots behavior on real hardware
 - UQ analysis (n=4): Mean fidelity ~86-91%, with wide 95% CI at 1K shots
 
+### Noise Model Comparison (UQ, n=4 runs each)
+| Source | Mean Fidelity | Avg σ | Gap vs Real |
+|--------|---------------|-------|-------------|
+| ibm_torino_aer (real calibration) | 98.5% | 0.009 | +9.4% |
+| Generic Heron noise | 99.3% | 0.006 | +10.2% |
+| Real Torino Hardware | 89.1% | 0.049 | — |
+
+**Both noise models significantly underestimate real hardware degradation (~9-10% fidelity gap)**
+
 ### Plot Output
 - `noise_study_comparison.png`: Fidelity vs shots (Tridiag Heron sim, HS Heron sim, HS IBM Fez, HS IBM Torino run1/2/3)
 - `uq_torino_4runs.png`: UQ analysis with 4 Torino runs showing mean ± 95% CI
+- `uq_sim_vs_real.png`: Comparison of Heron noise sim vs real Torino hardware

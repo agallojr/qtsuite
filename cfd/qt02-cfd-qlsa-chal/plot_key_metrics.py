@@ -6,10 +6,10 @@ from pathlib import Path
 
 # Data from scaling study
 data = {
-    '2x2': {'grid_points': 4, 'kappa': 1, 'qubits': 7, 'depth': 243},
-    '3x3': {'grid_points': 9, 'kappa': 43, 'qubits': 13, 'depth': 2156878},
-    '4x4': {'grid_points': 16, 'kappa': 160, 'qubits': 15, 'depth': 8592323},
-    '5x5': {'grid_points': 25, 'kappa': 460, 'qubits': 17, 'depth': 72522301}
+    '2x2': {'grid_points': 4, 'kappa': 1, 'qubits': 7, 'depth': 243, 't_circ': 0.03},
+    '3x3': {'grid_points': 9, 'kappa': 43, 'qubits': 13, 'depth': 2156878, 't_circ': 34.7},
+    '4x4': {'grid_points': 16, 'kappa': 160, 'qubits': 15, 'depth': 8592323, 't_circ': 144.2},
+    '5x5': {'grid_points': 25, 'kappa': 460, 'qubits': 17, 'depth': 72522301, 't_circ': 1855.3}
 }
 
 mesh_labels = list(data.keys())
@@ -17,15 +17,16 @@ grid_points = [data[m]['grid_points'] for m in mesh_labels]
 kappas = [data[m]['kappa'] for m in mesh_labels]
 qubits = [data[m]['qubits'] for m in mesh_labels]
 depths = [data[m]['depth'] for m in mesh_labels]
+t_circs = [data[m]['t_circ'] for m in mesh_labels]
 
 # Create figure with single plot and dual y-axes
 fig, ax1 = plt.subplots(1, 1, figsize=(12, 7))
-fig.suptitle('HHL Circuit Scaling: Condition Number, Qubits, and Depth', 
+fig.suptitle('HHL Circuit Scaling: Condition Number, Qubits, Depth, and Construction Time', 
              fontsize=16, fontweight='bold', y=0.98)
 
 # Left y-axis: Condition Number and Circuit Depth (log scale)
 ax1.set_xlabel('Mesh Size', fontweight='bold', fontsize=14)
-ax1.set_ylabel('Condition Number (κ) and Circuit Depth (log scale)', fontweight='bold', fontsize=13, color='black')
+ax1.set_ylabel('')
 ax1.set_xticks(grid_points)
 ax1.set_xticklabels(mesh_labels, fontsize=12)
 ax1.grid(True, alpha=0.3, linestyle='--', zorder=0)
@@ -38,6 +39,10 @@ line1 = ax1.semilogy(grid_points, kappas, 's-', linewidth=3, markersize=12,
 line2 = ax1.semilogy(grid_points, depths, 'o-', linewidth=3, markersize=12, 
                      color='#06A77D', label='Circuit Depth', zorder=3)
 
+# Plot Construction Time (log scale)
+line4 = ax1.semilogy(grid_points, t_circs, 'D-', linewidth=3, markersize=12, 
+                     color='#5B8FF9', label='Construction Time (s)', zorder=3)
+
 ax1.tick_params(axis='y', labelsize=11)
 
 # Right y-axis: Qubit Count (linear scale)
@@ -48,8 +53,8 @@ line3 = ax2.plot(grid_points, qubits, '^-', linewidth=3, markersize=12,
 ax2.tick_params(axis='y', labelcolor='#F18F01', labelsize=11)
 ax2.set_ylim([5, 19])
 
-# Add annotations for all three metrics
-for i, (x, k, d, q) in enumerate(zip(grid_points, kappas, depths, qubits)):
+# Add annotations for all metrics
+for i, (x, k, d, q, t) in enumerate(zip(grid_points, kappas, depths, qubits, t_circs)):
     # Condition number annotation
     ax1.annotate(f'κ={k:.0f}', xy=(x, k), xytext=(-35, -20), textcoords='offset points',
                 ha='center', fontsize=9, fontweight='bold', color='#A23B72',
@@ -70,9 +75,20 @@ for i, (x, k, d, q) in enumerate(zip(grid_points, kappas, depths, qubits)):
     ax2.annotate(f'{q}', xy=(x, q), xytext=(0, -25), textcoords='offset points',
                 ha='center', fontsize=10, fontweight='bold', color='#F18F01',
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#F18F01', alpha=0.9))
+    
+    # Construction time annotation
+    if t < 1:
+        t_label = f'{t*1000:.0f}ms'
+    elif t < 60:
+        t_label = f'{t:.0f}s'
+    else:
+        t_label = f'{t/60:.1f}m'
+    ax1.annotate(t_label, xy=(x, t), xytext=(-35, 10), textcoords='offset points',
+                ha='center', fontsize=9, fontweight='bold', color='#5B8FF9',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#5B8FF9', alpha=0.9))
 
 # Combine legends
-lines1 = line1 + line2
+lines1 = line1 + line2 + line4
 labels1 = [l.get_label() for l in lines1]
 lines2 = line3
 labels2 = [l.get_label() for l in lines2]
