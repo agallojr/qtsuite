@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt04-skqd-qdev"
+version = "0.1.0"
+description = "examples"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "qiskit>=2.0",
+    "qiskit-ibm-runtime",
+    "qiskit-serverless",
+    "qiskit_qasm3_import",
+    "qiskit_addon_opt_mapper",
+    "qiskit_ibm_catalog",
+    "qiskit_aer",
+    "pyscf>=2.10.0",
+    "numpy",
+    "qiskit_addon_sqd",
+    "matplotlib",
+    "scipy>=1.15.0,<1.17.0",
+    "lwfm@git+https://github.com/lwfm-proj/lwfm",
+    "toml",
+    "ffsim",
+    #"qc-grader @ git+https://github.com/qiskit-community/Quantum-Challenge-Grader.git",
+]
+
+[tool.setuptools]
+packages = {find = {where = ["."]}}
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+
+[tool.pylint.messages_control]
+disable = [
+    "C0103",  # invalid-name
+    "C0114",  # missing-module-docstring
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "W0212",  # protected-access
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+    "W0621",  # redefined-outer-name
+    "C0305",  # trailing-newlines
+    "C0303",  # trailing-whitespace
+]
+
+
