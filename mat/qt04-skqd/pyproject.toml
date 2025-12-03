@@ -24,11 +24,16 @@ dependencies = [
     "lwfm@git+https://github.com/lwfm-proj/lwfm",
     "toml",
     "ffsim",
-    "qc-grader @ git+https://github.com/qiskit-community/Quantum-Challenge-Grader.git",
+    "qtlib",
+    #"qc-grader @ git+https://github.com/qiskit-community/Quantum-Challenge-Grader.git",
 ]
 
 [tool.setuptools]
 packages = {find = {where = ["."]}}
+
+[tool.uv.sources]
+qtlib = { path = "../../qtlib", editable = true }
+
 
 [tool.black]
 line-length = 88

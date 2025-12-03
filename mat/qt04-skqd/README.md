@@ -60,7 +60,7 @@ brew install uv
 ### 2. Create and activate a virtual environment
 
 ```bash
-cd qt04-skqd-qdev
+cd qt04-skqd
 uv venv
 source .venv/bin/activate
 ```
