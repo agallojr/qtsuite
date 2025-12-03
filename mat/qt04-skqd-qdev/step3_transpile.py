@@ -23,7 +23,7 @@ def transpile_circuits(
         List of transpiled circuits.
     """
     if backend is None:
-        backend = AerSimulator(method='density_matrix')
+        backend = AerSimulator(method='automatic')
     
     pass_manager = generate_preset_pass_manager(
         optimization_level=optimization_level,
@@ -46,13 +46,3 @@ def run_step_transpile(circuits: list[QuantumCircuit]) -> list[QuantumCircuit]:
     """
     return transpile_circuits(circuits)
 
-
-if __name__ == "__main__":
-    # Demo: transpile a simple circuit
-    qc = QuantumCircuit(2)
-    qc.h(0)
-    qc.cx(0, 1)
-    qc.measure_all()
-    
-    result = run_step_transpile([qc])
-    print(f"Demo complete: {len(result)} circuit(s) transpiled.")

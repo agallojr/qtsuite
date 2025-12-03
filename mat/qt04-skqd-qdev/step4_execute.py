@@ -6,7 +6,6 @@ import numpy as np
 
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
-from qiskit_aer.primitives import SamplerV2
 
 from qiskit_addon_sqd.counts import counts_to_arrays
 
@@ -20,27 +19,25 @@ def execute_circuits(
     
     Args:
         circuits: List of transpiled quantum circuits.
-        backend: Target backend. Defaults to AerSimulator with density_matrix method.
+        backend: Target backend. Defaults to AerSimulator.
         shots: Number of shots per circuit.
         
     Returns:
         Tuple of (bitstrings, probabilities, combined_counts).
     """
     if backend is None:
-        backend = AerSimulator(method='density_matrix')
+        backend = AerSimulator(method='automatic')
     
-    sampler = SamplerV2(backend)
+    # Run circuits directly on backend
+    job = backend.run(circuits, shots=shots)
+    result = job.result()
     
-    # Run all circuits
-    job = sampler.run(circuits)
-    results = job.result()
-    
-    print(f"Executed {len(results)} circuits with {shots} shots each.")
+    print(f"Executed {len(circuits)} circuits with {shots} shots each.")
     
     # Combine counts from all circuit results
     combined_counts = {}
-    for pub_result in results:
-        counts = pub_result.data.meas.get_counts()
+    for i in range(len(circuits)):
+        counts = result.get_counts(i)
         for bitstring, count in counts.items():
             combined_counts[bitstring] = combined_counts.get(bitstring, 0) + count
     
@@ -68,13 +65,3 @@ def run_step_execute(
     """
     return execute_circuits(circuits, shots=shots)
 
-
-if __name__ == "__main__":
-    # Demo: execute a simple circuit
-    qc = QuantumCircuit(2)
-    qc.h(0)
-    qc.cx(0, 1)
-    qc.measure_all()
-    
-    bitstrings, probs, counts = run_step_execute([qc], shots=100)
-    print(f"Demo complete: {counts}")

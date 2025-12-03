@@ -38,22 +38,34 @@ def siam_hamiltonian_momentum(
     return h1e_momentum, h2e_momentum
 
 
-def run_step1():
-    """Run step 4: construct SIAM Hamiltonian in momentum basis."""
-    NUM_ORBS = 10
-    HOPPING = 1.0
-    ONSITE = 5
-    HYBRIDIZATION = 1.0
-    CHEMICAL_POTENTIAL = -0.5 * ONSITE
+def run_step1(
+    num_orbs: int = 10,
+    hopping: float = 1.0,
+    onsite: float = 5.0,
+    hybridization: float = 1.0,
+    filling_factor: float = -0.5,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Run step 1: construct SIAM Hamiltonian in momentum basis.
+    
+    Args:
+        num_orbs: Number of spatial orbitals
+        hopping: Hopping parameter
+        onsite: Onsite energy (U)
+        hybridization: Hybridization strength
+        filling_factor: Multiplier for chemical potential
+            (chemical_potential = filling_factor * onsite)
+        
+    Returns:
+        Tuple of (h1e, h2e) arrays in momentum basis.
+    """
+    chemical_potential = filling_factor * onsite
 
-    result = siam_hamiltonian_momentum(NUM_ORBS, HYBRIDIZATION, HOPPING, ONSITE, CHEMICAL_POTENTIAL)
+    result = siam_hamiltonian_momentum(num_orbs, hopping, onsite,
+        hybridization, chemical_potential)
     
     print(f"h1e shape: {result[0].shape}")
     print(f"h2e shape: {result[1].shape}")
-    print("Step 4 passed: SIAM Hamiltonian constructed in momentum basis.")
+    print(f"Step 1 passed: SIAM Hamiltonian ({num_orbs} orbitals).")
     
     return result
 
-
-if __name__ == "__main__":
-    run_step1()

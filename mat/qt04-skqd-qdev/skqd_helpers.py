@@ -204,14 +204,17 @@ def prepare_initial_state(qubits: Sequence[Qubit], num_orbs: int, occ_num: int):
         yield CircuitInstruction(x_gate, [qubits[num_orbs + i]])
     for i in range(3):
         for j in range(occ_num - i - 1, occ_num + i, 2):
-            yield CircuitInstruction(rot, [qubits[j], qubits[j + 1]])
-            yield CircuitInstruction(
-                rot, [qubits[num_orbs + j], qubits[num_orbs + j + 1]]
-            )
-    yield CircuitInstruction(rot, [qubits[j + 1], qubits[j + 2]])
-    yield CircuitInstruction(
-        rot, [qubits[num_orbs + j + 1], qubits[num_orbs + j + 2]]
-    )
+            if j + 1 < num_orbs:
+                yield CircuitInstruction(rot, [qubits[j], qubits[j + 1]])
+                yield CircuitInstruction(
+                    rot, [qubits[num_orbs + j], qubits[num_orbs + j + 1]]
+                )
+    # Final rotation pair - only if indices are valid
+    if j + 2 < num_orbs:
+        yield CircuitInstruction(rot, [qubits[j + 1], qubits[j + 2]])
+        yield CircuitInstruction(
+            rot, [qubits[num_orbs + j + 1], qubits[num_orbs + j + 2]]
+        )
 
 
 def trotter_step(

@@ -1,5 +1,5 @@
 """
-Step 5: Construct Krylov circuits for SIAM.
+Step 2: Construct Krylov circuits for SIAM.
 """
 
 import numpy as np
@@ -53,7 +53,9 @@ def construct_krylov_siam(
         
         # Apply k Trotter steps for k-th Krylov state using helper
         for _ in range(k):
-            for instruction in skqd_helpers.trotter_step(qreg, dt, hamiltonian_unitary, impurity_index, num_orbs):
+            for instruction in \
+                skqd_helpers.trotter_step(qreg, dt, hamiltonian_unitary,
+                    impurity_index, num_orbs):
                 qc.append(instruction)
         
         circuits.append(qc)
@@ -61,28 +63,50 @@ def construct_krylov_siam(
     return circuits
 
 
-def run_step2():
-    """Run step 5: construct SIAM Krylov circuits."""
-    NUM_ORBS = 10
-    HOPPING = 1.0
-    ONSITE = 5
-    HYBRIDIZATION = 1.0
-    CHEMICAL_POTENTIAL = -0.5 * ONSITE
+def run_step2(
+    num_orbs: int = 10,
+    hopping: float = 1.0,
+    onsite: float = 5.0,
+    hybridization: float = 1.0,
+    krylov_dim: int = 5,
+    filling_factor: float = -0.5,
+    dt_multiplier: float = 1.0,
+    add_measurements: bool = True,
+) -> list[QuantumCircuit]:
+    """Run step 2: construct SIAM Krylov circuits.
     
-    hamiltonian = siam_hamiltonian_momentum(NUM_ORBS, HYBRIDIZATION, HOPPING, ONSITE,
-        CHEMICAL_POTENTIAL)
+    Args:
+        num_orbs: Number of spatial orbitals (qubits = 2 * num_orbs)
+        hopping: Hopping parameter
+        onsite: Onsite energy (U)
+        hybridization: Hybridization strength
+        krylov_dim: Number of Krylov basis states
+        filling_factor: Multiplier for chemical potential
+        dt_multiplier: Multiplier for time step (default 1.0, try 6-10 for more evolution)
+        add_measurements: Whether to add measurement gates
+        
+    Returns:
+        List of Krylov circuits.
+    """
+    chemical_potential = filling_factor * onsite
     
-    dt = np.pi / np.linalg.norm(hamiltonian[0], ord=2)
-    impurity_index = (NUM_ORBS - 1) // 2
-    krylov_dim = 5
+    hamiltonian = siam_hamiltonian_momentum(
+        num_orbs, hopping, onsite, hybridization, chemical_potential
+    )
     
-    circuits = construct_krylov_siam(NUM_ORBS, impurity_index, hamiltonian, dt, krylov_dim)
+    dt = dt_multiplier * np.pi / np.linalg.norm(hamiltonian[0], ord=2)
+    impurity_index = (num_orbs - 1) // 2
     
-    print(f"Constructed {len(circuits)} SIAM Krylov circuits.")
-    print("Step 5 passed: SIAM Krylov circuits constructed.")
+    circuits = construct_krylov_siam(
+        num_orbs, impurity_index, hamiltonian, dt, krylov_dim
+    )
+    
+    if add_measurements:
+        for qc in circuits:
+            qc.measure_all()
+    
+    num_qubits = 2 * num_orbs
+    print(f"Constructed {len(circuits)} SIAM Krylov circuits ({num_qubits} qubits).")
     
     return circuits
 
-
-if __name__ == "__main__":
-    run_step2()
