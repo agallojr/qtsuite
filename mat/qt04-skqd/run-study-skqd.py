@@ -233,6 +233,17 @@ def main():
     print("\n" + "=" * 60)
     print("SKQD Study Complete")
     print("=" * 60)
+    
+    # Persist study summary to study directory
+    study_summary = {
+        'study_id': study_id,
+        'num_cases': len(results),
+        'cases': results,
+    }
+    summary_path = study_dir / 'study_summary.json'
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        json.dump(study_summary, f, indent=2)
+    print(f"\nStudy summary saved to: {summary_path}")
 
 
 if __name__ == "__main__":
