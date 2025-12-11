@@ -19,6 +19,8 @@ Options:
     --max-iter N       SQD max iterations (default: 10)
     --num-batches N    SQD number of batches (default: 5)
     --samples-per-batch N  SQD samples per batch (default: 200)
+    --output-dir DIR   Output directory for case metadata (optional)
+    --no-persist       Disable saving intermediate results (default: persist=True)
 
 Performance guidelines:
     - qubits scale as 2*num_orbs
@@ -31,6 +33,9 @@ Performance guidelines:
 import json
 import sys
 import time
+from pathlib import Path
+
+import numpy as np
 
 
 def parse_args():
@@ -49,6 +54,8 @@ def parse_args():
         'max_iter': 10,
         'num_batches': 5,
         'samples_per_batch': 200,
+        'output_dir': None,
+        'persist': True,
     }
     
     # Parse numeric arguments
@@ -79,6 +86,10 @@ def parse_args():
             args['num_batches'] = int(sys.argv[i + 1])
         elif arg == '--samples-per-batch' and i + 1 < len(sys.argv):
             args['samples_per_batch'] = int(sys.argv[i + 1])
+        elif arg == '--output-dir' and i + 1 < len(sys.argv):
+            args['output_dir'] = sys.argv[i + 1]
+        elif arg == '--no-persist':
+            args['persist'] = False
     
     return args
 
@@ -100,22 +111,76 @@ def main():
           f"samples_per_batch={args['samples_per_batch']}")
     print("=" * 60)
       
+    # Determine if we should persist intermediate results
+    output_dir = Path(args['output_dir']) if args['output_dir'] else None
+    persist = args['persist'] and output_dir is not None
+    
+    # Save case_info.json early so later steps can run standalone
+    if output_dir:
+        case_info = {
+            'num_orbs': args['num_orbs'],
+            'krylov_dim': args['krylov_dim'],
+            'dt_mult': args['dt_mult'],
+            'shots': args['shots'],
+            'noise': args['noise'],
+            'hopping': args['hopping'],
+            'onsite': args['onsite'],
+            'hybridization': args['hybridization'],
+            'filling_factor': args['filling_factor'],
+            'opt_level': args['opt_level'],
+            'max_iter': args['max_iter'],
+            'num_batches': args['num_batches'],
+            'samples_per_batch': args['samples_per_batch'],
+        }
+        with open(output_dir / 'case_info.json', 'w', encoding='utf-8') as f:
+            json.dump(case_info, f, indent=2)
+    
     # Step 1: SIAM Hamiltonian in momentum basis
     print(f"\n--- Step 1: SIAM Hamiltonian ({args['num_orbs']} orbitals) ---")
-    from step1_siam import run_step1
+    from step1_siam import siam_hamiltonian_momentum
     pre_start = time.time()
-    run_step1(num_orbs=args['num_orbs'])
+    chemical_potential = args['filling_factor'] * args['onsite']
+    h1e, h2e = siam_hamiltonian_momentum(
+        args['num_orbs'], args['hopping'], args['onsite'],
+        args['hybridization'], chemical_potential
+    )
     pre_time = time.time() - pre_start
+    print(f"h1e shape: {h1e.shape}")
+    print(f"h2e shape: {h2e.shape}")
     print(f"Hamiltonian setup in {pre_time:.2f}s")
+    
+    if persist:
+        np.save(output_dir / 'h1e_momentum.npy', h1e)
+        np.save(output_dir / 'h2e_momentum.npy', h2e)
+        print("  Saved: h1e_momentum.npy, h2e_momentum.npy")
     
     # Step 2: Build SIAM Krylov circuits
     print(f"\n--- Step 2: Build SIAM Krylov Circuits ({num_qubits} qubits) ---")
-    from step2_krylov import run_step2
+    from step2_krylov import construct_krylov_siam
     build_start = time.time()
-    circuits = run_step2(num_orbs=args['num_orbs'], krylov_dim=args['krylov_dim'],
-        dt_multiplier=args['dt_mult'])
+    dt = args['dt_mult'] * np.pi / np.linalg.norm(h1e, ord=2)
+    impurity_index = (args['num_orbs'] - 1) // 2
+    circuits = construct_krylov_siam(
+        args['num_orbs'], impurity_index, (h1e, h2e), dt, args['krylov_dim']
+    )
+    for qc in circuits:
+        qc.measure_all()
     build_time = time.time() - build_start
     print(f"Built {len(circuits)} circuits in {build_time:.2f}s")
+    
+    if persist:
+        from qiskit import qpy
+        with open(output_dir / 'circuits.qpy', 'wb') as f:
+            qpy.dump(circuits, f)
+        circuit_metadata = {
+            'dt': dt,
+            'impurity_index': impurity_index,
+            'krylov_dim': args['krylov_dim'],
+            'num_qubits': num_qubits,
+        }
+        with open(output_dir / 'circuit_metadata.json', 'w', encoding='utf-8') as f:
+            json.dump(circuit_metadata, f, indent=2)
+        print("  Saved: circuits.qpy, circuit_metadata.json")
     
     # Create backend & noise model
     from qiskit_aer import AerSimulator
@@ -141,9 +206,24 @@ def main():
     
     # Circuit depth stats
     depths = [c.depth() for c in transpiled]
+    gate_counts = [dict(c.count_ops()) for c in transpiled]
     avg_depth = sum(depths) / len(depths)
     print(f"Transpiled {len(transpiled)} circuits in {transpile_time:.2f}s")
     print(f"Circuit depths: min={min(depths)}, max={max(depths)}, avg={avg_depth:.1f}")
+    
+    if persist:
+        from qiskit import qpy
+        with open(output_dir / 'transpiled_circuits.qpy', 'wb') as f:
+            qpy.dump(transpiled, f)
+        transpile_stats = {
+            'optimization_level': args['opt_level'],
+            'backend': str(backend),
+            'depths': depths,
+            'gate_counts': gate_counts,
+        }
+        with open(output_dir / 'transpile_stats.json', 'w', encoding='utf-8') as f:
+            json.dump(transpile_stats, f, indent=2)
+        print("  Saved: transpiled_circuits.qpy, transpile_stats.json")
     
     # Step 4: Execute
     print(f"\n--- Step 4: Execute ({args['shots']} shots) ---")
@@ -153,6 +233,13 @@ def main():
         shots=args['shots'])
     exec_time = time.time() - exec_start
     print(f"Executed in {exec_time:.2f}s, unique bitstrings: {len(counts)}")
+    
+    if persist:
+        with open(output_dir / 'counts.json', 'w', encoding='utf-8') as f:
+            json.dump(counts, f)
+        np.save(output_dir / 'bitstrings.npy', bitstrings)
+        np.save(output_dir / 'probabilities.npy', probabilities)
+        print("  Saved: counts.json, bitstrings.npy, probabilities.npy")
     
     # Step 5: Post-process with SQD
     print("\n--- Step 5: SQD Post-processing ---")
@@ -168,6 +255,15 @@ def main():
                         num_batches=args['num_batches'],
                         samples_per_batch=args['samples_per_batch'])
     postprocess_time = time.time() - postprocess_start
+    
+    if persist:
+        energy_history = {
+            'energies': result,
+            'num_iterations': len(result),
+        }
+        with open(output_dir / 'energy_history.json', 'w', encoding='utf-8') as f:
+            json.dump(energy_history, f, indent=2)
+        print("  Saved: energy_history.json")
     
     # Compute exact energy for JSON output
     fci_start = time.time()
@@ -200,6 +296,51 @@ def main():
         'avg_depth': avg_depth,
     }
     print(f"SKQD_RESULT_JSON:{json.dumps(result_json)}")
+    
+    # Write case metadata JSON if output directory specified
+    if output_dir:
+        case_metadata = {
+            'parameters': {
+                'num_orbs': args['num_orbs'],
+                'krylov_dim': args['krylov_dim'],
+                'dt_mult': args['dt_mult'],
+                'shots': args['shots'],
+                'noise': args['noise'],
+                'hopping': args['hopping'],
+                'onsite': args['onsite'],
+                'hybridization': args['hybridization'],
+                'filling_factor': args['filling_factor'],
+                'opt_level': args['opt_level'],
+                'max_iter': args['max_iter'],
+                'num_batches': args['num_batches'],
+                'samples_per_batch': args['samples_per_batch'],
+            },
+            'results': {
+                'sqd_energy': sqd_energy,
+                'exact_energy': exact_energy,
+                'error_pct': error_pct,
+            },
+            'timing': {
+                'total_time': total_time,
+                'pre_time': pre_time,
+                'build_time': build_time,
+                'transpile_time': transpile_time,
+                'exec_time': exec_time,
+                'postprocess_time': postprocess_time,
+                'fci_time': fci_time,
+            },
+            'circuit_info': {
+                'num_circuits': len(circuits),
+                'num_qubits': num_qubits,
+                'avg_depth': avg_depth,
+                'min_depth': min(depths),
+                'max_depth': max(depths),
+            },
+        }
+        output_path = Path(args['output_dir']) / 'case_metadata.json'
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(case_metadata, f, indent=2)
+        print(f"Case metadata written to: {output_path}")
     
     print("\n" + "=" * 60)
     print(f"SKQD Test Suite Complete (total: {total_time:.1f}s, postprocess: {postprocess_time:.1f}s)")

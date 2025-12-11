@@ -2,6 +2,9 @@
 # Run with: python run-study-skqd.py study-example.toml
 
 [global]
+# Output directory for study results
+output_dir = "~/output"
+
 # Default parameters for all cases
 num_orbs = 8
 krylov_dim = 5
@@ -15,9 +18,6 @@ hybridization = 1.0
 filling_factor = -0.5
 # SQD post-processing parameters
 max_iter = 10
-num_batches = 5
-samples_per_batch = 200
-
 
 [study]
 noise = [0.0, 0.01]

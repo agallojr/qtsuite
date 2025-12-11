@@ -65,3 +65,58 @@ def run_step_execute(
     """
     return execute_circuits(circuits, shots=shots)
 
+
+def main():
+    """Run step 4 standalone from a case directory."""
+    import json
+    import sys
+    from pathlib import Path
+    from qiskit import qpy
+    from qiskit_aer.noise import NoiseModel, depolarizing_error
+    
+    if len(sys.argv) < 2:
+        print("Usage: python step4_execute.py <case_dir>")
+        sys.exit(1)
+    
+    case_dir = Path(sys.argv[1])
+    
+    # Load case info
+    case_info_path = case_dir / 'case_info.json'
+    if not case_info_path.exists():
+        print(f"Error: {case_info_path} not found")
+        sys.exit(1)
+    with open(case_info_path, 'r', encoding='utf-8') as f:
+        case_info = json.load(f)
+    
+    # Load step 3 outputs
+    transpiled_path = case_dir / 'transpiled_circuits.qpy'
+    if not transpiled_path.exists():
+        print(f"Error: transpiled_circuits.qpy not found in {case_dir}")
+        sys.exit(1)
+    with open(transpiled_path, 'rb') as f:
+        transpiled = qpy.load(f)
+    
+    # Create backend with noise if specified
+    noise = case_info.get('noise', 0.0)
+    if noise > 0:
+        noise_model = NoiseModel()
+        error_2q = depolarizing_error(noise, 2)
+        noise_model.add_all_qubit_quantum_error(error_2q, ['cx', 'cz', 'cp'])
+        backend = AerSimulator(noise_model=noise_model)
+    else:
+        backend = AerSimulator(method='automatic')
+    
+    # Execute
+    shots = case_info.get('shots', 1024)
+    bitstrings, probabilities, counts = execute_circuits(transpiled, backend=backend, shots=shots)
+    
+    # Save outputs
+    with open(case_dir / 'counts.json', 'w', encoding='utf-8') as f:
+        json.dump(counts, f)
+    np.save(case_dir / 'bitstrings.npy', bitstrings)
+    np.save(case_dir / 'probabilities.npy', probabilities)
+    print("Saved: counts.json, bitstrings.npy, probabilities.npy")
+
+
+if __name__ == "__main__":
+    main()

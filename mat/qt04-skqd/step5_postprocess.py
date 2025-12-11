@@ -187,3 +187,58 @@ def run_step5(
     
     return result
 
+
+def main():
+    """Run step 5 standalone from a case directory."""
+    import json
+    import sys
+    from pathlib import Path
+    
+    if len(sys.argv) < 2:
+        print("Usage: python step5_postprocess.py <case_dir>")
+        sys.exit(1)
+    
+    case_dir = Path(sys.argv[1])
+    
+    # Load case info
+    case_info_path = case_dir / 'case_info.json'
+    if not case_info_path.exists():
+        print(f"Error: {case_info_path} not found")
+        sys.exit(1)
+    with open(case_info_path, 'r', encoding='utf-8') as f:
+        case_info = json.load(f)
+    
+    # Load step 4 outputs
+    counts_path = case_dir / 'counts.json'
+    if not counts_path.exists():
+        print(f"Error: counts.json not found in {case_dir}")
+        sys.exit(1)
+    with open(counts_path, 'r', encoding='utf-8') as f:
+        counts = json.load(f)
+    
+    # Run postprocessing
+    num_orbs = case_info['num_orbs']
+    result = run_step5(
+        counts,
+        num_orbs=num_orbs,
+        hopping=case_info.get('hopping', 1.0),
+        onsite=case_info.get('onsite', 5.0),
+        hybridization=case_info.get('hybridization', 1.0),
+        filling_factor=case_info.get('filling_factor', -0.5),
+        max_iterations=case_info.get('max_iter', 10),
+        num_batches=case_info.get('num_batches', 5),
+        samples_per_batch=case_info.get('samples_per_batch', 200),
+    )
+    
+    # Save outputs
+    energy_history = {
+        'energies': result,
+        'num_iterations': len(result),
+    }
+    with open(case_dir / 'energy_history.json', 'w', encoding='utf-8') as f:
+        json.dump(energy_history, f, indent=2)
+    print("Saved: energy_history.json")
+
+
+if __name__ == "__main__":
+    main()

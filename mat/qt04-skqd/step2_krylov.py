@@ -110,3 +110,63 @@ def run_step2(
     
     return circuits
 
+
+def main():
+    """Run step 2 standalone from a case directory."""
+    import json
+    import sys
+    from pathlib import Path
+    from qiskit import qpy
+    
+    if len(sys.argv) < 2:
+        print("Usage: python step2_krylov.py <case_dir>")
+        sys.exit(1)
+    
+    case_dir = Path(sys.argv[1])
+    
+    # Load case info
+    case_info_path = case_dir / 'case_info.json'
+    if not case_info_path.exists():
+        print(f"Error: {case_info_path} not found")
+        sys.exit(1)
+    with open(case_info_path, 'r', encoding='utf-8') as f:
+        case_info = json.load(f)
+    
+    # Load step 1 outputs
+    h1e_path = case_dir / 'h1e_momentum.npy'
+    h2e_path = case_dir / 'h2e_momentum.npy'
+    if not h1e_path.exists() or not h2e_path.exists():
+        print(f"Error: h1e_momentum.npy or h2e_momentum.npy not found in {case_dir}")
+        sys.exit(1)
+    h1e = np.load(h1e_path)
+    h2e = np.load(h2e_path)
+    
+    # Build circuits
+    num_orbs = case_info['num_orbs']
+    dt = case_info['dt_mult'] * np.pi / np.linalg.norm(h1e, ord=2)
+    impurity_index = (num_orbs - 1) // 2
+    
+    circuits = construct_krylov_siam(
+        num_orbs, impurity_index, (h1e, h2e), dt, case_info['krylov_dim']
+    )
+    for qc in circuits:
+        qc.measure_all()
+    
+    print(f"Constructed {len(circuits)} circuits ({2 * num_orbs} qubits)")
+    
+    # Save outputs
+    with open(case_dir / 'circuits.qpy', 'wb') as f:
+        qpy.dump(circuits, f)
+    circuit_metadata = {
+        'dt': dt,
+        'impurity_index': impurity_index,
+        'krylov_dim': case_info['krylov_dim'],
+        'num_qubits': 2 * num_orbs,
+    }
+    with open(case_dir / 'circuit_metadata.json', 'w', encoding='utf-8') as f:
+        json.dump(circuit_metadata, f, indent=2)
+    print("Saved: circuits.qpy, circuit_metadata.json")
+
+
+if __name__ == "__main__":
+    main()

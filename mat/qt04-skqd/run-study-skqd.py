@@ -26,17 +26,19 @@ TOML format:
 import json
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 from qtlib.workflow import get_cases_args
 
 
-def run_case(case_id: str, params: dict) -> dict:
+def run_case(case_id: str, params: dict, case_output_dir: Path) -> dict:
     """Run a single SKQD case by calling run-skqd.py.
     
     Args:
         case_id: Identifier for this case
         params: Dictionary of parameters (num_orbs, krylov_dim, dt_mult, shots, noise)
+        case_output_dir: Directory to write case output files
         
     Returns:
         Dictionary with case metadata
@@ -79,6 +81,7 @@ def run_case(case_id: str, params: dict) -> dict:
         '--max-iter', str(max_iter),
         '--num-batches', str(num_batches),
         '--samples-per-batch', str(samples_per_batch),
+        '--output-dir', str(case_output_dir),
     ]
     
     # Run the subprocess and capture output
@@ -159,13 +162,26 @@ def main():
     
     toml_path = sys.argv[1]
     
+    # Load cases from TOML
+    cases = get_cases_args(toml_path)
+    
+    # Get output directory from global config
+    global_config = cases.get('global', {})
+    output_base = global_config.get('output_dir', 'output')
+    # Expand ~ to user home directory
+    output_base = Path(output_base).expanduser()
+    
+    # Create study directory with short UUID (8 chars)
+    study_id = uuid.uuid4().hex[:8]
+    study_dir = Path(output_base) / study_id
+    study_dir.mkdir(parents=True, exist_ok=True)
+    
     print("=" * 60)
     print("SKQD Study Runner")
     print(f"  TOML: {toml_path}")
+    print(f"  Study ID: {study_id}")
+    print(f"  Output: {study_dir}")
     print("=" * 60)
-    
-    # Load cases from TOML
-    cases = get_cases_args(toml_path)
     
     # Filter out 'global' - it's already merged into each case
     case_ids = [k for k in cases.keys() if k != 'global']
@@ -181,7 +197,10 @@ def main():
     results = []
     for case_id in case_ids:
         params = cases[case_id]
-        result = run_case(case_id, params)
+        # Create case output directory
+        case_output_dir = study_dir / case_id
+        case_output_dir.mkdir(parents=True, exist_ok=True)
+        result = run_case(case_id, params, case_output_dir)
         results.append(result)
     
     # Summary
