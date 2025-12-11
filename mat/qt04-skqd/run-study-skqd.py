@@ -176,6 +176,10 @@ def main():
     study_dir = Path(output_base) / study_id
     study_dir.mkdir(parents=True, exist_ok=True)
     
+    # Copy input TOML to study directory
+    import shutil
+    shutil.copy(toml_path, study_dir / Path(toml_path).name)
+    
     print("=" * 60)
     print("SKQD Study Runner")
     print(f"  TOML: {toml_path}")
