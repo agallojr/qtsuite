@@ -1,0 +1,441 @@
+"""
+Generic sweep runner for executing scripts with parameters from TOML files.
+
+Reads a TOML file, expands list parameters into individual cases,
+runs an executable for each case, and captures results to a directory.
+"""
+
+#pylint: disable=broad-exception-caught
+
+import subprocess
+import json
+import shutil
+import sys
+import uuid
+from pathlib import Path
+from datetime import datetime
+from itertools import product
+
+import tomli as tomllib
+
+
+def expand_case_lists(case_id: str, case_params: dict) -> list:
+    """
+    Expand a case with list-valued parameters into multiple subcases.
+    
+    For example, if a case has:
+        shots = [100, 1000, 10000]
+        ancilla = 6
+    
+    This will expand into 3 subcases:
+        case_id_0: shots=100, ancilla=6
+        case_id_1: shots=1000, ancilla=6
+        case_id_2: shots=10000, ancilla=6
+    
+    Returns:
+        List of (expanded_case_id, expanded_params) tuples
+    """
+    list_params = {}
+    scalar_params = {}
+
+    for key, value in case_params.items():
+        if isinstance(value, list):
+            list_params[key] = value
+        else:
+            scalar_params[key] = value
+
+    # If no lists, return the original case
+    if not list_params:
+        return [(case_id, case_params.copy())]
+
+    # Generate all combinations of list values
+    param_names = list(list_params.keys())
+    param_values = [list_params[name] for name in param_names]
+
+    expanded_cases = []
+    for i, combination in enumerate(product(*param_values)):
+        expanded_id = f"{case_id}_{i}"
+        expanded_params = scalar_params.copy()
+        for param_name, param_value in zip(param_names, combination):
+            expanded_params[param_name] = param_value
+        expanded_cases.append((expanded_id, expanded_params))
+
+    return expanded_cases
+
+
+def load_sweep_config(toml_path: str) -> dict:
+    """
+    Load sweep configuration from a TOML file.
+    
+    Expected structure:
+        [global]
+        _output_dir = "./results"
+        _postproc = ["python postproc.py"]
+        
+        [case1]
+        molecule = "H2"
+        shots = [1000, 2000, 4000]
+        
+        [case2]
+        molecule = "LiH"
+        shots = 8192
+        _postproc = ["python custom_postproc.py"]
+    
+    Returns:
+        dict with 'global' config and 'groups' (original cases with their expansions)
+    """
+    toml_path = Path(toml_path)
+    if not toml_path.is_file():
+        raise FileNotFoundError(f"TOML file not found: {toml_path}")
+
+    with open(toml_path, "rb") as f:
+        data = tomllib.load(f)
+
+    global_params = data.get("global", {})
+    groups = {}  # original_case_id -> {params, expanded_cases}
+
+    for key in data:
+        if key == "global":
+            continue
+
+        # Expand this case
+        expanded = expand_case_lists(key, data[key])
+
+        # Merge global params with case params for each expanded case
+        expanded_cases = {}
+        for expanded_id, expanded_params in expanded:
+            merged = global_params.copy()
+            merged.update(expanded_params)
+            expanded_cases[expanded_id] = merged
+
+        # Store the group with its merged params (for postproc) and expanded cases
+        group_params = global_params.copy()
+        group_params.update(data[key])
+        groups[key] = {
+            "params": group_params,
+            "expanded_cases": expanded_cases
+        }
+
+    return {"global": global_params, "groups": groups}
+
+
+def build_command_args(params: dict, arg_mapping: dict = None) -> list:
+    """
+    Convert parameter dict to command-line arguments.
+    
+    Args:
+        params: Parameter dict from TOML
+        arg_mapping: Optional dict mapping param names to CLI arg names
+                     e.g., {"bond_length": "--bond-length"}
+                     If None, uses --{param_name} with underscores replaced by dashes
+    
+    Returns:
+        List of command-line arguments
+    """
+    args = []
+    skip_keys = {"executable", "_output_dir", "_metadata", "_postproc"}
+    
+    for key, value in params.items():
+        if key in skip_keys or key.startswith("_"):
+            continue
+        
+        # Determine CLI arg name
+        if arg_mapping and key in arg_mapping:
+            arg_name = arg_mapping[key]
+        else:
+            arg_name = f"--{key.replace('_', '-')}"
+        
+        # Handle different value types
+        if isinstance(value, bool):
+            if value:
+                args.append(arg_name)
+        elif value is not None:
+            args.append(arg_name)
+            args.append(str(value))
+    
+    return args
+
+
+def run_postproc(postproc_list: list, run_dir: Path, case_dirs: list, dry_run: bool = False) -> list:
+    """
+    Run postprocessing scripts with case directories as arguments.
+    
+    Args:
+        postproc_list: List of postproc commands (e.g., ["python analyze.py", "python plot.py --verbose"])
+        run_dir: The run directory (UUID folder) for output
+        case_dirs: List of case directory paths to pass as arguments
+        dry_run: If True, print commands without executing
+    
+    Returns:
+        List of results for each postproc command
+    """
+    results = []
+    for postproc_cmd in postproc_list:
+        # Pass --output-dir as first arg, then case directories
+        cmd = postproc_cmd.split() + ["--output-dir", str(run_dir)] + [str(d) for d in case_dirs]
+        
+        if dry_run:
+            print(f"  Postproc (dry-run): {' '.join(cmd)}")
+            results.append({"command": cmd, "status": "dry_run"})
+            continue
+        
+        print(f"  Running postproc: {postproc_cmd}")
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+                check=False
+            )
+            if result.returncode == 0:
+                print("    ✓ Postproc completed")
+            else:
+                print(f"    ✗ Postproc error (code {result.returncode})")
+                if result.stderr:
+                    print(f"      {result.stderr[:200]}")
+            results.append({
+                "command": cmd,
+                "status": "success" if result.returncode == 0 else "error",
+                "returncode": result.returncode,
+                "stdout": result.stdout[:500] if result.stdout else "",
+                "stderr": result.stderr[:500] if result.stderr else ""
+            })
+        except Exception as e:
+            print(f"    ✗ Postproc exception: {e}")
+            results.append({"command": cmd, "status": "exception", "error": str(e)})
+    
+    return results
+
+
+def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bool = False) -> dict:
+    """
+    Run a parameter sweep from a TOML configuration file.
+    
+    Args:
+        toml_path: Path to the TOML configuration file
+        script: Path to the Python script to run (will be invoked as 'python <script>')
+        arg_mapping: Optional mapping of param names to CLI arg names
+        dry_run: If True, print commands without executing
+    
+    Returns:
+        dict with results for each case
+    """
+    config = load_sweep_config(toml_path)
+    global_params = config["global"]
+    groups = config["groups"]
+    
+    # Build executable command: python <script>
+    executable = f"python {script}"
+    
+    # Expand ~ to user home directory (works on Unix, Mac, Windows)
+    output_dir_str = global_params.get("_output_dir", "./sweep_results")
+    output_dir = Path(output_dir_str).expanduser().resolve()
+    
+    # Create output_dir if it doesn't exist
+    if not dry_run:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create run subdirectory with short UUID
+    run_id = uuid.uuid4().hex[:8]  # 8-character hex string
+    run_dir = output_dir / run_id
+    
+    # Count total cases across all groups
+    total_cases = sum(len(g["expanded_cases"]) for g in groups.values())
+    
+    if not dry_run:
+        run_dir.mkdir(parents=True, exist_ok=True)
+        # Copy input TOML to run directory
+        shutil.copy2(toml_path, run_dir / Path(toml_path).name)
+        # Write expanded cases to JSON before running
+        expanded_cases_file = run_dir / "expanded_cases.json"
+        all_cases = {}
+        for group in groups.values():
+            all_cases.update(group["expanded_cases"])
+        with open(expanded_cases_file, "w", encoding="utf-8") as f:
+            json.dump({"cases": all_cases, "global": global_params}, f, indent=2)
+        # Write start time marker
+        start_time_file = run_dir / "START"
+        with open(start_time_file, "w", encoding="utf-8") as f:
+            f.write(datetime.now().isoformat())
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    results = {
+        "config_file": str(toml_path),
+        "output_dir": str(output_dir),
+        "run_id": run_id,
+        "run_dir": str(run_dir),
+        "timestamp": timestamp,
+        "groups": {},
+        "cases": {}
+    }
+    
+    print(f"Running sweep: {total_cases} cases in {len(groups)} groups")
+    print(f"Output directory: {run_dir}")
+    print()
+    
+    # Process each group
+    for group_id, group_data in groups.items():
+        group_params = group_data["params"]
+        expanded_cases = group_data["expanded_cases"]
+        
+        print(f"=== Group: {group_id} ({len(expanded_cases)} cases) ===")
+        
+        group_case_dirs = []
+        
+        # Run each expanded case in the group
+        for case_id, params in expanded_cases.items():
+            print(f"  Case: {case_id}")
+            
+            # Build command - expand ~ in executable path
+            cmd_parts = executable.split()
+            cmd_parts = [str(Path(p).expanduser()) if p.startswith("~") or "/" in p or "\\" in p 
+                         else p for p in cmd_parts]
+            cmd_args = build_command_args(params, arg_mapping)
+            cmd = cmd_parts + cmd_args
+            
+            if dry_run:
+                print(f"    Command: {' '.join(cmd)}")
+                results["cases"][case_id] = {"command": cmd, "status": "dry_run"}
+                group_case_dirs.append(run_dir / case_id)
+                continue
+            
+            # Create case output directory
+            case_dir = run_dir / case_id
+            case_dir.mkdir(parents=True, exist_ok=True)
+            group_case_dirs.append(case_dir)
+            
+            # Save case parameters (include run_id)
+            params_with_run_id = params.copy()
+            params_with_run_id["_run_id"] = run_id
+            params_file = case_dir / "params.json"
+            with open(params_file, "w", encoding="utf-8") as f:
+                json.dump(params_with_run_id, f, indent=2)
+            
+            # Run the command
+            stdout_file = case_dir / "stdout.json"
+            stderr_file = case_dir / "stderr.txt"
+            
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=3600,  # 1 hour timeout
+                    check=False
+                )
+                
+                # Save stdout (expected to be JSON)
+                with open(stdout_file, "w", encoding="utf-8") as f:
+                    f.write(result.stdout)
+                
+                # Save stderr
+                with open(stderr_file, "w", encoding="utf-8") as f:
+                    f.write(result.stderr)
+                
+                case_result = {
+                    "command": cmd,
+                    "status": "success" if result.returncode == 0 else "error",
+                    "returncode": result.returncode,
+                    "output_dir": str(case_dir)
+                }
+                
+                if result.returncode == 0:
+                    print("    ✓ Completed")
+                else:
+                    print(f"    ✗ Error (code {result.returncode})")
+                    if result.stderr:
+                        print(f"      {result.stderr[:200]}")
+            
+            except subprocess.TimeoutExpired:
+                case_result = {
+                    "command": cmd,
+                    "status": "timeout",
+                    "output_dir": str(case_dir)
+                }
+                print("    ✗ Timeout")
+            
+            except Exception as e:
+                case_result = {
+                    "command": cmd,
+                    "status": "exception",
+                    "error": str(e),
+                    "output_dir": str(case_dir)
+                }
+                print(f"    ✗ Exception: {e}")
+            
+            results["cases"][case_id] = case_result
+        
+        # Run postproc for this group if specified
+        postproc = group_params.get("_postproc", [])
+        if postproc:
+            # Ensure postproc is a list
+            if isinstance(postproc, str):
+                postproc = [postproc]
+            postproc_results = run_postproc(postproc, run_dir, group_case_dirs, dry_run)
+            results["groups"][group_id] = {"_postproc": postproc_results}
+        
+        print()
+    
+    # Save overall results
+    if not dry_run:
+        results_file = run_dir / "sweep_results.json"
+        with open(results_file, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
+        # Write end time marker
+        end_time_file = run_dir / "END"
+        with open(end_time_file, "w", encoding="utf-8") as f:
+            f.write(datetime.now().isoformat())
+        print(f"Results saved to: {results_file}")
+    
+    return results
+
+
+# *****************************************************************************
+# CLI
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="Run parameter sweeps from TOML configuration",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example TOML:
+    [global]
+    output_dir = "./results"
+    
+    [h2_sweep]
+    molecule = "H2"
+    shots = [1000, 2000, 4000, 8192]
+    ancilla = 6
+    
+    [lih_test]
+    molecule = "LiH"
+    shots = 8192
+    ancilla = [4, 6, 8]
+
+Usage:
+    python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml
+    python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml --dry-run
+""")
+    parser.add_argument("script", help="Python script to run (e.g., src/gs_qpe.py)")
+    parser.add_argument("toml_file", help="Path to TOML configuration file")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print commands without executing")
+    
+    args = parser.parse_args()
+    
+    try:
+        results = run_sweep(args.toml_file, args.script, dry_run=args.dry_run)
+        
+        # Print summary
+        print("\n=== Summary ===")
+        total = len(results["cases"])
+        success = sum(1 for c in results["cases"].values() if c.get("status") == "success")
+        print(f"Total: {total}, Success: {success}, Failed: {total - success}")
+        
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
