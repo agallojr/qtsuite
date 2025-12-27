@@ -1,0 +1,17 @@
+# QPE Ground State Energy Sweep Configuration
+# Run with: python -m qp4p_sweeper src/gs_qpe.py input/gs_qpe.toml
+
+[global]
+_output_dir = "~/qp4p"
+_post_postproc = "python src/postproc_noise.py"
+molecule = "HeH+"
+shots = 4096
+ancilla = 6
+
+# Noiseless baseline (no t1/t2 = no noise)
+[heh_noiseless]
+
+# Noise study on HeH+ with very short T1/T2 to show noise effect
+[heh_noise]
+t1 = [1, 5, 50]
+t2 = [1, 5]

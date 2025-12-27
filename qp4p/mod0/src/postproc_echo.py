@@ -3,10 +3,10 @@
 Sample postprocessing script that echoes its arguments.
 
 This script is called by the sweeper after all cases in a group complete.
-It receives the list of case directories as command-line arguments.
+It receives a single JSON file path containing the postproc context.
 
 Usage:
-    python postproc_echo.py /path/to/case1 /path/to/case2 ...
+    python postproc_echo.py /path/to/_postproc_groupname.json
 """
 
 import sys
@@ -15,15 +15,27 @@ from pathlib import Path
 
 
 def main():
+    if len(sys.argv) < 2:
+        print("Usage: python postproc_echo.py <postproc_json>")
+        sys.exit(1)
+    
+    # Load postproc context from JSON file
+    postproc_json = Path(sys.argv[1])
+    with open(postproc_json, "r", encoding="utf-8") as f:
+        context = json.load(f)
+    
     print("=" * 60)
     print("POSTPROC ECHO")
     print("=" * 60)
-    print(f"Number of case directories: {len(sys.argv) - 1}")
+    print(f"Group ID: {context.get('group_id', 'N/A')}")
+    print(f"Run ID: {context.get('run_id', 'N/A')}")
+    print(f"Run Dir: {context.get('run_dir', 'N/A')}")
+    print(f"Number of case directories: {len(context.get('case_dirs', []))}")
     print()
     
-    for i, arg in enumerate(sys.argv[1:], 1):
-        case_dir = Path(arg)
-        print(f"Case {i}: {case_dir}")
+    for i, case_dir_str in enumerate(context.get("case_dirs", []), 1):
+        case_dir = Path(case_dir_str)
+        print(f"Case {i}: {case_dir.name}")
         
         # Try to read params.json if it exists
         params_file = case_dir / "params.json"

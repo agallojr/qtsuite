@@ -3,13 +3,14 @@
 
 [global]
 _output_dir = "~/qp4p"
+_post_postproc = "python src/postproc_echo.py"
 
 # H2 shots convergence study
 [h2_shots]
 molecule = "H2"
 ancilla = 6
 shots = [1024, 2048, 4096, 8192]
-_postproc = ["python src/postproc_echo.py"]
+_postproc = "python src/postproc_echo.py"
 
 # H2 ancilla precision study
 [h2_ancilla]
@@ -30,11 +31,3 @@ molecule = ["H2", "HeH+"]
 shots = 8192
 ancilla = 6
 
-# Noise study on H2
-[h2_noise]
-molecule = "H2"
-shots = 8192
-ancilla = 6
-t1 = [50, 100, 200]
-t2 = [30, 60, 120]
-_postproc = ["python src/postproc_noise.py"]

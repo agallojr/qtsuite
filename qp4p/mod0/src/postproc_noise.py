@@ -6,10 +6,9 @@ Plots fidelity of quantum ground state to classically computed ground state
 as a function of T1 and T2 noise parameters.
 
 Usage:
-    python postproc_noise.py --output-dir /path/to/run /path/to/case1 /path/to/case2 ...
+    python postproc_noise.py /path/to/_postproc_groupname.json
 """
 
-import argparse
 import json
 import sys
 from pathlib import Path
@@ -39,114 +38,183 @@ def load_case_data(case_dir: Path) -> dict:
     return data
 
 
-def compute_fidelity(case_data: dict) -> float:
+def compute_metrics(case_data: dict) -> dict:
     """
-    Compute fidelity metric from case output.
+    Compute metrics from case output.
     
-    Uses the error vs chemical accuracy as a proxy for fidelity.
-    Lower error = higher fidelity.
+    Returns dict with:
+        - error_hartree: absolute error vs FCI energy
+        - phase_concentration: fraction of shots at best phase (higher = less noise)
+        - energy_std: standard deviation of energy estimates from phase distribution
+        - energy_uncertainty: 95% confidence interval half-width for energy
     """
     output = case_data.get("output", {})
     if not output:
         return None
     
+    metrics = {}
+    
+    # Error in Hartree
     analysis = output.get("analysis", {})
-    
-    # Use error in Hartree - smaller is better
     error = analysis.get("error_hartree")
-    if error is None:
-        return None
+    if error is not None:
+        metrics["error_hartree"] = abs(error)
     
-    # Convert error to a fidelity-like metric (0-1 scale)
-    # Using exponential decay: fidelity = exp(-|error| / scale)
-    # Scale chosen so chemical accuracy (0.0016 Ha) gives ~0.99 fidelity
-    scale = 0.05  # Hartree
-    fidelity = np.exp(-abs(error) / scale)
+    # Phase concentration and uncertainty from phase distribution
+    qpe = output.get("qpe", {})
+    phase_counts = qpe.get("phase_counts", {})
+    evolution_time = qpe.get("evolution_time", 1.0)
+    energy_shift = qpe.get("energy_shift", 0.0)
     
-    return fidelity
+    if phase_counts:
+        total_shots = sum(phase_counts.values())
+        best_count = max(phase_counts.values())
+        metrics["phase_concentration"] = best_count / total_shots
+        
+        # Compute energy distribution from phase counts
+        energies = []
+        weights = []
+        for phase_str, count in phase_counts.items():
+            phase = float(phase_str)
+            # Convert phase to energy: E = phase * 2π / t + shift
+            energy = phase * 2 * np.pi / evolution_time + energy_shift
+            energies.append(energy)
+            weights.append(count)
+        
+        # Weighted mean and std
+        energies = np.array(energies)
+        weights = np.array(weights) / total_shots
+        mean_energy = np.sum(energies * weights)
+        variance = np.sum(weights * (energies - mean_energy) ** 2)
+        std_energy = np.sqrt(variance)
+        
+        metrics["energy_std"] = std_energy
+        # 95% CI assuming roughly normal: ~1.96 * std
+        metrics["energy_uncertainty"] = 1.96 * std_energy
+    
+    return metrics if metrics else None
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Plot noise study results: fidelity vs T1/T2"
-    )
-    parser.add_argument("--output-dir", required=True,
-                        help="Directory to save the plot")
-    parser.add_argument("case_dirs", nargs="+",
-                        help="Case directories to process")
+    if len(sys.argv) < 2:
+        print("Usage: python postproc_noise.py <postproc_json>")
+        sys.exit(1)
     
-    args = parser.parse_args()
+    # Load postproc context from JSON file
+    postproc_json = Path(sys.argv[1])
+    with open(postproc_json, "r", encoding="utf-8") as f:
+        context = json.load(f)
     
-    output_dir = Path(args.output_dir)
+    output_dir = Path(context["run_dir"])
+    case_dirs = context.get("case_dirs", [])
+    groups = context.get("groups", [])  # For _post_postproc
+    group_name = context.get("group_id", "noise_study")  # For per-group postproc
     
     # Load data from all cases
     cases = []
-    for case_dir_str in args.case_dirs:
+    for case_dir_str in case_dirs:
         case_dir = Path(case_dir_str)
         if case_dir.exists():
             data = load_case_data(case_dir)
+            # Add case directory name to identify group
+            data["case_name"] = case_dir.name
             cases.append(data)
     
     if not cases:
         print("No valid case data found")
         sys.exit(1)
     
-    # Extract T1, T2, and fidelity values
-    t1_values = []
-    t2_values = []
-    fidelities = []
+    # Separate noiseless cases (no t1/t2 params) from noisy cases
+    noiseless_cases = []
+    noisy_cases = []
     
     for case in cases:
         params = case.get("params", {})
         t1 = params.get("t1")
         t2 = params.get("t2")
-        fidelity = compute_fidelity(case)
+        metrics = compute_metrics(case)
         
-        if t1 is not None and t2 is not None and fidelity is not None:
-            t1_values.append(float(t1))
-            t2_values.append(float(t2))
-            fidelities.append(fidelity)
+        if metrics is None:
+            continue
+        
+        if t1 is None or t2 is None:
+            # Noiseless case (no t1/t2 specified)
+            noiseless_cases.append({
+                'case_name': case.get("case_name", "unknown"),
+                'error': metrics.get("error_hartree", 0),
+                'concentration': metrics.get("phase_concentration", 0)
+            })
+        else:
+            # Noisy case
+            noisy_cases.append({
+                'case_name': case.get("case_name", "unknown"),
+                't1': float(t1),
+                't2': float(t2),
+                'error': metrics.get("error_hartree", 0),
+                'concentration': metrics.get("phase_concentration", 0)
+            })
     
-    if not fidelities:
-        print("No valid fidelity data found")
-        sys.exit(1)
+    # Get noiseless baseline
+    if noiseless_cases:
+        noiseless_error = np.mean([c['error'] for c in noiseless_cases])
+    else:
+        print("Warning: No noiseless case found")
+        noiseless_error = min([c['error'] for c in noisy_cases]) if noisy_cases else 0
     
-    # Create the plot
-    fig, ax = plt.subplots(figsize=(10, 8))
+    # Create bar chart comparing noisy vs noiseless
+    fig, ax = plt.subplots(figsize=(12, 7))
     
-    # Create scatter plot with color representing fidelity
-    scatter = ax.scatter(
-        t1_values, t2_values,
-        c=fidelities,
-        cmap="RdYlGn",
-        s=200,
-        vmin=0, vmax=1,
-        edgecolors="black",
-        linewidths=1
-    )
+    # Sort noisy cases by error (worst first)
+    noisy_cases.sort(key=lambda x: x['error'], reverse=True)
     
-    # Add colorbar
-    cbar = plt.colorbar(scatter, ax=ax)
-    cbar.set_label("Fidelity", fontsize=12)
+    labels = [f"T1={c['t1']}, T2={c['t2']}" for c in noisy_cases]
+    noisy_errors = [c['error'] for c in noisy_cases]
     
-    # Add value labels on each point
-    for t1, t2, fid in zip(t1_values, t2_values, fidelities):
-        ax.annotate(
-            f"{fid:.3f}",
-            (t1, t2),
-            textcoords="offset points",
-            xytext=(0, 10),
-            ha="center",
-            fontsize=9
-        )
+    # Add noiseless as reference
+    labels.insert(0, "Noiseless")
+    all_errors = [noiseless_error] + noisy_errors
     
-    ax.set_xlabel("T1 (μs)", fontsize=12)
-    ax.set_ylabel("T2 (μs)", fontsize=12)
-    ax.set_title("Ground State Fidelity vs Noise Parameters (T1, T2)", fontsize=14)
-    ax.grid(True, alpha=0.3)
+    # Color bars: green for noiseless, gradient for noisy
+    colors = ['#2ca02c'] + ['#d62728'] * len(noisy_errors)
     
-    # Save the plot
-    plot_file = output_dir / "noise_fidelity.png"
+    x = range(len(labels))
+    bars = ax.bar(x, all_errors, color=colors, edgecolor='black', linewidth=1)
+    
+    # Add value labels on bars
+    for bar, err in zip(bars, all_errors):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.001,
+                f'{err:.4f}', ha='center', va='bottom', fontsize=9)
+    
+    # Add horizontal line for noiseless reference
+    ax.axhline(y=noiseless_error, color='#2ca02c', linestyle='--', linewidth=2, 
+               label=f'Noiseless baseline: {noiseless_error:.4f} Ha')
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)
+    ax.set_ylabel("Error (Hartree)", fontsize=12)
+    ax.set_title(f"Noise Study: {group_name}\nError vs Noiseless Baseline", fontsize=14)
+    ax.grid(True, alpha=0.3, axis='y')
+    ax.legend(loc='upper right', fontsize=10)
+    
+    # Compute and show degradation stats
+    if noisy_errors:
+        avg_noisy = np.mean(noisy_errors)
+        worst_noisy = max(noisy_errors)
+        degradation = (avg_noisy - noiseless_error) / noiseless_error * 100 if noiseless_error > 0 else 0
+        
+        summary = (f"Noiseless error: {noiseless_error:.4f} Ha\n"
+                   f"Avg noisy error: {avg_noisy:.4f} Ha\n"
+                   f"Worst noisy error: {worst_noisy:.4f} Ha\n"
+                   f"Avg degradation: {degradation:+.1f}%")
+        
+        ax.text(0.02, 0.98, summary, transform=ax.transAxes, fontsize=10,
+                verticalalignment='top', family='monospace',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    
+    plt.tight_layout()
+    
+    # Save the plot with group name
+    plot_file = output_dir / f"{group_name}_noise_study.png"
     plt.savefig(plot_file, dpi=150, bbox_inches="tight")
     print(f"Plot saved to: {plot_file}")
     
@@ -155,11 +223,13 @@ def main():
     
     # Print summary
     print("\n=== Noise Study Summary ===")
-    print(f"Number of cases: {len(fidelities)}")
-    print(f"T1 range: {min(t1_values):.0f} - {max(t1_values):.0f} μs")
-    print(f"T2 range: {min(t2_values):.0f} - {max(t2_values):.0f} μs")
-    print(f"Fidelity range: {min(fidelities):.4f} - {max(fidelities):.4f}")
-    print(f"Mean fidelity: {np.mean(fidelities):.4f}")
+    print(f"Noiseless cases: {len(noiseless_cases)}")
+    print(f"Noisy cases: {len(noisy_cases)}")
+    if noisy_cases:
+        t1_vals = [c['t1'] for c in noisy_cases]
+        t2_vals = [c['t2'] for c in noisy_cases]
+        print(f"T1 range: {min(t1_vals):.0f} - {max(t1_vals):.0f} μs")
+        print(f"T2 range: {min(t2_vals):.0f} - {max(t2_vals):.0f} μs")
 
 
 if __name__ == "__main__":

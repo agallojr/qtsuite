@@ -156,14 +156,13 @@ def build_command_args(params: dict, arg_mapping: dict = None) -> list:
     return args
 
 
-def run_postproc(postproc_list: list, run_dir: Path, case_dirs: list, dry_run: bool = False) -> list:
+def run_postproc(postproc_list: list, postproc_json: Path, dry_run: bool = False) -> list:
     """
-    Run postprocessing scripts with case directories as arguments.
+    Run postprocessing scripts with a JSON file as the single argument.
     
     Args:
         postproc_list: List of postproc commands (e.g., ["python analyze.py", "python plot.py --verbose"])
-        run_dir: The run directory (UUID folder) for output
-        case_dirs: List of case directory paths to pass as arguments
+        postproc_json: Path to JSON file containing postproc context
         dry_run: If True, print commands without executing
     
     Returns:
@@ -171,8 +170,7 @@ def run_postproc(postproc_list: list, run_dir: Path, case_dirs: list, dry_run: b
     """
     results = []
     for postproc_cmd in postproc_list:
-        # Pass --output-dir as first arg, then case directories
-        cmd = postproc_cmd.split() + ["--output-dir", str(run_dir)] + [str(d) for d in case_dirs]
+        cmd = postproc_cmd.split() + [str(postproc_json)]
         
         if dry_run:
             print(f"  Postproc (dry-run): {' '.join(cmd)}")
@@ -313,6 +311,11 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
             with open(params_file, "w", encoding="utf-8") as f:
                 json.dump(params_with_run_id, f, indent=2)
             
+            # Write case START marker
+            case_start_file = case_dir / "START"
+            with open(case_start_file, "w", encoding="utf-8") as f:
+                f.write(datetime.now().isoformat())
+            
             # Run the command
             stdout_file = case_dir / "stdout.json"
             stderr_file = case_dir / "stderr.txt"
@@ -333,6 +336,11 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
                 # Save stderr
                 with open(stderr_file, "w", encoding="utf-8") as f:
                     f.write(result.stderr)
+                
+                # Write case END marker
+                case_end_file = case_dir / "END"
+                with open(case_end_file, "w", encoding="utf-8") as f:
+                    f.write(datetime.now().isoformat())
                 
                 case_result = {
                     "command": cmd,
@@ -373,9 +381,53 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
             # Ensure postproc is a list
             if isinstance(postproc, str):
                 postproc = [postproc]
-            postproc_results = run_postproc(postproc, run_dir, group_case_dirs, dry_run)
+            
+            # Write postproc JSON file for this group
+            postproc_data = {
+                "group_id": group_id,
+                "run_id": run_id,
+                "run_dir": str(run_dir),
+                "case_dirs": [str(d) for d in group_case_dirs],
+                "params": group_params
+            }
+            postproc_json = run_dir / f"_postproc_{group_id}.json"
+            if not dry_run:
+                with open(postproc_json, "w", encoding="utf-8") as f:
+                    json.dump(postproc_data, f, indent=2)
+            
+            postproc_results = run_postproc(postproc, postproc_json, dry_run)
             results["groups"][group_id] = {"_postproc": postproc_results}
         
+        print()
+    
+    # Run _post_postproc if specified (runs after all groups complete)
+    post_postproc = global_params.get("_post_postproc", [])
+    if post_postproc:
+        if isinstance(post_postproc, str):
+            post_postproc = [post_postproc]
+        
+        # Collect all case directories from all groups
+        all_case_dirs = []
+        for group_data in groups.values():
+            for case_id in group_data["expanded_cases"]:
+                all_case_dirs.append(str(run_dir / case_id))
+        
+        # Write post_postproc JSON file
+        post_postproc_data = {
+            "run_id": run_id,
+            "run_dir": str(run_dir),
+            "case_dirs": all_case_dirs,
+            "groups": list(groups.keys()),
+            "global_params": global_params
+        }
+        post_postproc_json = run_dir / "_post_postproc.json"
+        if not dry_run:
+            with open(post_postproc_json, "w", encoding="utf-8") as f:
+                json.dump(post_postproc_data, f, indent=2)
+        
+        print("=== Running post-postproc ===")
+        post_postproc_results = run_postproc(post_postproc, post_postproc_json, dry_run)
+        results["_post_postproc"] = post_postproc_results
         print()
     
     # Save overall results

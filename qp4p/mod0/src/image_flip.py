@@ -1,5 +1,10 @@
 """
 Image flip demonstration
+
+Sample execution:
+    python src/image_flip.py --size 4 --shots 1024
+    python src/image_flip.py --image input/sample.png --shots 2048
+    python src/image_flip.py --size 8 --t1 50 --t2 40 --shots 4096
 """
 
 import argparse
@@ -131,6 +136,8 @@ if __name__ == "__main__":
                         help="T2 dephasing time in microseconds (default: no noise)")
     parser.add_argument("--no-display", action="store_true",
                         help="Disable graphical display of images")
+    parser.add_argument("--backend", type=str, default=None,
+                        help="Fake backend name (e.g., 'manila', 'jakarta')")
     args = parser.parse_args()
     display = not args.no_display
 
@@ -152,7 +159,8 @@ if __name__ == "__main__":
         shots = args.shots
 
     # 4. Run the circuit
-    counts = run_circuit(qc, shots=shots, t1=args.t1, t2=args.t2)
+    run_result = run_circuit(qc, shots=shots, t1=args.t1, t2=args.t2, backend=args.backend)
+    counts = run_result["counts"]
 
     # 5. Reconstruct images
     # Original image (from pixel data)
@@ -179,13 +187,15 @@ if __name__ == "__main__":
             "depth": qc.depth(),
             "gate_counts": dict(qc.count_ops())
         },
+        "transpiled_stats": run_result["transpiled_stats"],
         "run": {
             "shots": shots,
-            "fidelity": round(fidelity, 4)
-        }
+            "fidelity": round(fidelity, 4),
+            "t1_us": args.t1,
+            "t2_us": args.t2
+        },
+        "backend_info": json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None
     }
-    if args.t1 or args.t2:
-        results["run"]["noise"] = {"t1_us": args.t1, "t2_us": args.t2}
 
     # 7. Print results as JSON
     print(json.dumps(results, indent=2))

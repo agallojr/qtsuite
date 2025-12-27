@@ -80,7 +80,8 @@ def build_qpe_circuit(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
 
 def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
             evolution_time: float = None, shots: int = 8192,
-            t1: float = None, t2: float = None) -> dict:
+            t1: float = None, t2: float = None,
+            backend: str = None) -> dict:
     """
     Run QPE to estimate ground state energy.
     
@@ -116,7 +117,10 @@ def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
     
     # Transpile to basis gates for Aer simulator
     qc_transpiled = transpile(qc, basis_gates=BASIS_GATES, optimization_level=1)
-    counts = run_circuit(qc_transpiled, shots=shots, t1=t1, t2=t2)
+    run_result = run_circuit(qc_transpiled, shots=shots, t1=t1, t2=t2, backend=backend)
+    counts = run_result["counts"]
+    backend_info = run_result["backend_info"]
+    transpiled_stats = run_result["transpiled_stats"]
     
     # Extract phase from measurement results
     # Qiskit's measurement is little-endian: bitstring[0] is the last qubit measured
@@ -136,7 +140,7 @@ def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
     shifted_energy = best_phase * 2 * np.pi / evolution_time
     estimated_energy = shifted_energy + energy_shift
     
-    return {
+    result = {
         "estimated_energy": float(estimated_energy),
         "best_phase": float(best_phase),
         "evolution_time": float(evolution_time),
@@ -145,11 +149,13 @@ def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
         "phase_counts": {str(k): v for k, v in sorted(measured_phases.items())},
         "circuit_stats": {
             "num_qubits": qc.num_qubits,
-            "depth": qc.depth(),
-            "transpiled_depth": qc_transpiled.depth(),
-            "transpiled_gate_count": qc_transpiled.count_ops()
-        }
+            "depth": qc.depth()
+        },
+        "transpiled_stats": transpiled_stats,
+        "backend_info": json.dumps(backend_info, separators=(',', ':')) if backend_info else None
     }
+    
+    return result
 
 
 # *****************************************************************************
@@ -179,6 +185,8 @@ if __name__ == "__main__":
                         help="Bond length in Angstroms (default: molecule-specific)")
     parser.add_argument("--evolution-time", type=float, default=None,
                         help="Evolution time parameter (default: auto-computed)")
+    parser.add_argument("--backend", type=str, default=None,
+                        help="Fake backend name (e.g., 'manila', 'jakarta')")
     args = parser.parse_args()
 
     # Build Hamiltonian
@@ -192,7 +200,8 @@ if __name__ == "__main__":
         evolution_time=args.evolution_time,
         shots=args.shots,
         t1=args.t1,
-        t2=args.t2
+        t2=args.t2,
+        backend=args.backend
     )
     
     # Compute error metrics
@@ -217,7 +226,8 @@ if __name__ == "__main__":
         "run_config": {
             "shots": args.shots,
             "t1_us": args.t1,
-            "t2_us": args.t2
+            "t2_us": args.t2,
+            "backend": args.backend
         }
     }
     
