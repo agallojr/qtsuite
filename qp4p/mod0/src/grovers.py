@@ -1,5 +1,10 @@
 """
 Grover's algorithm demonstration
+
+Sample execution:
+    python src/grovers.py
+    python src/grovers.py --targets 101 110 --shots 2048
+    python src/grovers.py --backend jakarta --no-display
 """
 
 import argparse
@@ -30,6 +35,8 @@ if __name__ == "__main__":
                         help="T1 relaxation time in microseconds (default: no noise)")
     parser.add_argument("--t2", type=float, default=None,
                         help="T2 dephasing time in microseconds (default: no noise)")
+    parser.add_argument("--backend", type=str, default=None,
+                        help="Fake backend name (e.g., 'manila', 'jakarta')")
     parser.add_argument("--no-display", action="store_true",
                         help="Disable graphical display of circuit and plots")
     args = parser.parse_args()
@@ -81,7 +88,7 @@ if __name__ == "__main__":
     # 7. We want an illustrative look under the hood.
     # Build probability snapshots for each iteration (only if display is enabled)
     # If noise is specified, use shots-based simulation; otherwise use ideal statevector
-    use_noise = args.t1 is not None or args.t2 is not None
+    use_noise = args.t1 is not None or args.t2 is not None or args.backend is not None
 
     if display:
         target_indices = [int(s, 2) for s in marked_states]
@@ -100,10 +107,10 @@ if __name__ == "__main__":
                 # Noisy simulation: transpile to basis gates, add measurements, run with noise
                 qc_transpiled = transpile(qc_iter, basis_gates=BASIS_GATES)
                 qc_transpiled.measure_all()
-                counts = run_circuit(qc_transpiled, shots=args.shots, t1=args.t1, t2=args.t2)
+                run_result = run_circuit(qc_transpiled, shots=args.shots, t1=args.t1, t2=args.t2, backend=args.backend)
                 # Convert counts to probability distribution
                 probs = np.zeros(num_states)
-                for bitstring, count in counts.items():
+                for bitstring, count in run_result["counts"].items():
                     idx = int(bitstring, 2)
                     probs[idx] = count / args.shots
             else:
@@ -148,7 +155,8 @@ if __name__ == "__main__":
     grover_with_meas = transpile(grover_circuit, basis_gates=BASIS_GATES)
     grover_with_meas.measure_all()
     
-    counts = run_circuit(grover_with_meas, shots=args.shots, t1=args.t1, t2=args.t2)
+    run_result = run_circuit(grover_with_meas, shots=args.shots, t1=args.t1, t2=args.t2, backend=args.backend)
+    counts = run_result["counts"]
     
     # Find top measurement
     top_measurement = max(counts, key=counts.get)
@@ -164,8 +172,10 @@ if __name__ == "__main__":
             for state, count in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
         }
     }
-    if args.t1 or args.t2:
-        results["run"]["noise"] = {"t1_us": args.t1, "t2_us": args.t2}
+    results["run"]["t1_us"] = args.t1
+    results["run"]["t2_us"] = args.t2
+    results["transpiled_stats"] = run_result["transpiled_stats"]
+    results["backend_info"] = json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None
 
     # 11. Print results as JSON
     print(json.dumps(results, indent=2))
