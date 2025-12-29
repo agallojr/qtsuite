@@ -1,0 +1,131 @@
+"""
+Phase Kickback Example
+
+Demonstrates phase kickback: when a controlled gate acts on an eigenstate of the
+target gate, the phase is "kicked back" to the control qubit.
+
+Example: Apply CZ (controlled-Z) where the target is in |1⟩ state.
+The Z gate has eigenvalue -1 for |1⟩, so the phase -1 kicks back to the control.
+
+Sample execution:
+    python src/phase_kickback.py
+    python src/phase_kickback.py --t1 50 --t2 40
+    python src/phase_kickback.py --no-display
+"""
+
+import json
+
+from qiskit import QuantumCircuit
+from qiskit.visualization import plot_histogram
+import matplotlib.pyplot as plt
+
+from qp4p_circuit import run_circuit
+
+
+# *****************************************************************************
+
+def make_circuit_phase_kickback(x_gate: bool) -> QuantumCircuit:
+    """
+    Demonstrate phase kickback using CZ gate.
+    
+    Setup:
+    - Control qubit (q0): Put in superposition with H
+    - Target qubit (q1): Put in |1⟩ state with X - optionally, to show with and without
+    - Apply CZ gate
+    
+    Result: If x was applied setting the state, the -1 phase from Z|1⟩ = -|1⟩ kicks back
+    to the control qubit, flipping its phase: |+⟩ -> |-⟩
+    """
+    qc = QuantumCircuit(2)
+    # Put control in superposition: |0⟩ -> |+⟩ = (|0⟩ + |1⟩)/√2
+    qc.h(0)
+    if x_gate:
+        # Put target in |1⟩ eigenstate of Z
+        qc.x(1)
+    # Apply CZ - phase kicks back to control
+    qc.cz(0, 1)
+    # The control is now in |-⟩ = (|0⟩ - |1⟩)/√2
+    # Apply H to convert back to computational basis to observe
+    qc.h(0)
+    return qc
+
+
+def run_example_kickback(t1: float = None, t2: float = None, display: bool = True,
+                         backend: str = None):
+    """Run both circuits and compare results."""
+    # With kickback (X gate on target)
+    qc_kick = make_circuit_phase_kickback(x_gate=True)
+    qc_kick.measure_all()
+    
+    # Without kickback (no X gate)
+    qc_no_kick = make_circuit_phase_kickback(x_gate=False)
+    qc_no_kick.measure_all()
+    
+    # Run simulations using helper
+    result_kick = run_circuit(qc_kick, t1=t1, t2=t2, backend=backend)
+    result_no_kick = run_circuit(qc_no_kick, t1=t1, t2=t2, backend=backend)
+    
+    # Build results
+    results = {
+        "with_kickback": {
+            "counts": result_kick["counts"],
+            "transpiled_stats": result_kick["transpiled_stats"],
+            "description": "Target in |1⟩ - control flips to |1⟩ due to kickback"
+        },
+        "without_kickback": {
+            "counts": result_no_kick["counts"],
+            "transpiled_stats": result_no_kick["transpiled_stats"],
+            "description": "Target in |0⟩ - control stays in |0⟩"
+        },
+        "params": {
+            "t1": t1,
+            "t2": t2,
+            "backend": backend
+        },
+        "backend_info": json.dumps(result_kick["backend_info"], separators=(',', ':')) if result_kick["backend_info"] else None
+    }
+    
+    # Output JSON to stdout
+    print(json.dumps(results, indent=2))
+    
+    if display:
+        # Plot
+        _, axes = plt.subplots(2, 2, figsize=(12, 8))
+        
+        qc_kick_draw = make_circuit_phase_kickback(x_gate=True)
+        qc_kick_draw.draw("mpl", ax=axes[0, 0])
+        axes[0, 0].set_title("With Kickback (target=|1⟩)")
+        
+        plot_histogram(result_kick["counts"], ax=axes[0, 1])
+        axes[0, 1].set_title("Results: control -> |1⟩")
+        
+        qc_no_kick_draw = make_circuit_phase_kickback(x_gate=False)
+        qc_no_kick_draw.draw("mpl", ax=axes[1, 0])
+        axes[1, 0].set_title("No Kickback (target=|0⟩)")
+        
+        plot_histogram(result_no_kick["counts"], ax=axes[1, 1])
+        axes[1, 1].set_title("Results: control -> |0⟩")
+        
+        plt.tight_layout()
+        plt.show()
+    
+    return results
+
+
+# *****************************************************************************
+# main
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Phase kickback example")
+    parser.add_argument("--t1", type=float, default=None,
+                        help="T1 relaxation time in µs (default: None = no noise)")
+    parser.add_argument("--t2", type=float, default=None,
+                        help="T2 dephasing time in µs (default: None = no noise)")
+    parser.add_argument("--no-display", action="store_true",
+                        help="Suppress plot display")
+    parser.add_argument("--backend", type=str, default=None,
+                        help="Fake backend name (e.g., 'manila', 'jakarta')")
+    args = parser.parse_args()
+    run_example_kickback(t1=args.t1, t2=args.t2, display=not args.no_display,
+                         backend=args.backend)
