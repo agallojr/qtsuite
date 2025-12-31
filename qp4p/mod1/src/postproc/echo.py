@@ -6,7 +6,9 @@ This script is called by the sweeper after all cases in a group complete.
 It receives a single JSON file path containing the postproc context.
 
 Usage:
-    python postproc_echo.py /path/to/_postproc_groupname.json
+    python src/postproc/echo.py /path/to/_postproc_groupname.json
+    or
+    python -m postproc.echo /path/to/_postproc_groupname.json
 """
 
 import sys
@@ -16,7 +18,7 @@ from pathlib import Path
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python postproc_echo.py <postproc_json>")
+        print("Usage: python src/postproc/echo.py <postproc_json>")
         sys.exit(1)
     
     # Load postproc context from JSON file

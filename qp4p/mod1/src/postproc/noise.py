@@ -6,7 +6,9 @@ Plots fidelity of quantum ground state to classically computed ground state
 as a function of T1 and T2 noise parameters.
 
 Usage:
-    python postproc_noise.py /path/to/_postproc_groupname.json
+    python src/postproc/noise.py /path/to/_postproc_groupname.json
+    or
+    python -m postproc.noise /path/to/_postproc_groupname.json
 """
 
 import json
@@ -97,7 +99,7 @@ def compute_metrics(case_data: dict) -> dict:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python postproc_noise.py <postproc_json>")
+        print("Usage: python src/postproc/noise.py <postproc_json>")
         sys.exit(1)
     
     # Load postproc context from JSON file

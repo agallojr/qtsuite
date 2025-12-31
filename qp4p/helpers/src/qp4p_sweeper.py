@@ -70,16 +70,17 @@ def load_sweep_config(toml_path: str) -> dict:
     Expected structure:
         [global]
         _output_dir = "./results"
-        _postproc = ["python postproc.py"]
+        _final_postproc = ["python final_postproc.py"]
         
         [case1]
         molecule = "H2"
         shots = [1000, 2000, 4000]
+        _group_postproc = ["python group_postproc.py"]
         
         [case2]
         molecule = "LiH"
         shots = 8192
-        _postproc = ["python custom_postproc.py"]
+        _group_postproc = ["python custom_postproc.py"]
     
     Returns:
         dict with 'global' config and 'groups' (original cases with their expansions)
@@ -133,7 +134,7 @@ def build_command_args(params: dict, arg_mapping: dict = None) -> list:
         List of command-line arguments
     """
     args = []
-    skip_keys = {"executable", "_output_dir", "_metadata", "_postproc"}
+    skip_keys = {"executable", "_output_dir", "_metadata", "_case_postproc", "_group_postproc", "_final_postproc"}
     
     for key, value in params.items():
         if key in skip_keys or key.startswith("_"):
@@ -156,19 +157,32 @@ def build_command_args(params: dict, arg_mapping: dict = None) -> list:
     return args
 
 
-def run_postproc(postproc_list: list, postproc_json: Path, dry_run: bool = False) -> list:
+def run_postproc(postproc_list: list, postproc_json: Path, script_dir: Path = None, dry_run: bool = False) -> list:
     """
     Run postprocessing scripts with a JSON file as the single argument.
     
     Args:
         postproc_list: List of postproc commands (e.g., ["python analyze.py", "python plot.py --verbose"])
         postproc_json: Path to JSON file containing postproc context
+        script_dir: Directory containing the script (added to PYTHONPATH for module imports)
         dry_run: If True, print commands without executing
     
     Returns:
         List of results for each postproc command
     """
     results = []
+    
+    # Set up environment with PYTHONPATH
+    env = None
+    if script_dir:
+        import os
+        env = os.environ.copy()
+        existing_path = env.get('PYTHONPATH', '')
+        if existing_path:
+            env['PYTHONPATH'] = f"{script_dir}:{existing_path}"
+        else:
+            env['PYTHONPATH'] = str(script_dir)
+    
     for postproc_cmd in postproc_list:
         cmd = postproc_cmd.split() + [str(postproc_json)]
         
@@ -184,7 +198,8 @@ def run_postproc(postproc_list: list, postproc_json: Path, dry_run: bool = False
                 capture_output=True,
                 text=True,
                 timeout=3600,
-                check=False
+                check=False,
+                env=env
             )
             if result.returncode == 0:
                 print("    ✓ Postproc completed")
@@ -206,7 +221,7 @@ def run_postproc(postproc_list: list, postproc_json: Path, dry_run: bool = False
     return results
 
 
-def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bool = False) -> dict:
+def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bool = False, group_filter: str = None) -> dict:
     """
     Run a parameter sweep from a TOML configuration file.
     
@@ -215,6 +230,7 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
         script: Path to the Python script to run (will be invoked as 'python <script>')
         arg_mapping: Optional mapping of param names to CLI arg names
         dry_run: If True, print commands without executing
+        group_filter: Optional group name to run only that group (if None, run all groups)
     
     Returns:
         dict with results for each case
@@ -223,8 +239,18 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
     global_params = config["global"]
     groups = config["groups"]
     
+    # Filter groups if group_filter is specified
+    if group_filter:
+        if group_filter not in groups:
+            raise ValueError(f"Group '{group_filter}' not found in TOML. Available groups: {list(groups.keys())}")
+        groups = {group_filter: groups[group_filter]}
+    
     # Build executable command: python <script>
     executable = f"python {script}"
+    
+    # Get script directory for PYTHONPATH (for module imports in postproc)
+    script_path = Path(script)
+    script_dir = script_path.parent.resolve()
     
     # Expand ~ to user home directory (works on Unix, Mac, Windows)
     output_dir_str = global_params.get("_output_dir", "./sweep_results")
@@ -375,14 +401,14 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
             
             results["cases"][case_id] = case_result
         
-        # Run postproc for this group if specified
-        postproc = group_params.get("_postproc", [])
-        if postproc:
+        # Run group postproc for this group if specified
+        group_postproc = group_params.get("_group_postproc", [])
+        if group_postproc:
             # Ensure postproc is a list
-            if isinstance(postproc, str):
-                postproc = [postproc]
+            if isinstance(group_postproc, str):
+                group_postproc = [group_postproc]
             
-            # Write postproc JSON file for this group
+            # Prepare postproc data
             postproc_data = {
                 "group_id": group_id,
                 "run_id": run_id,
@@ -390,44 +416,44 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
                 "case_dirs": [str(d) for d in group_case_dirs],
                 "params": group_params
             }
-            postproc_json = run_dir / f"_postproc_{group_id}.json"
+            postproc_json = run_dir / f"_group_postproc_{group_id}.json"
             if not dry_run:
                 with open(postproc_json, "w", encoding="utf-8") as f:
                     json.dump(postproc_data, f, indent=2)
             
-            postproc_results = run_postproc(postproc, postproc_json, dry_run)
-            results["groups"][group_id] = {"_postproc": postproc_results}
+            postproc_results = run_postproc(group_postproc, postproc_json, script_dir, dry_run)
+            results["groups"][group_id] = {"_group_postproc": postproc_results}
         
         print()
     
-    # Run _post_postproc if specified (runs after all groups complete)
-    post_postproc = global_params.get("_post_postproc", [])
-    if post_postproc:
-        if isinstance(post_postproc, str):
-            post_postproc = [post_postproc]
+    # Run _final_postproc if specified (runs after all groups complete)
+    final_postproc = global_params.get("_final_postproc", [])
+    if final_postproc:
+        if isinstance(final_postproc, str):
+            final_postproc = [final_postproc]
         
         # Collect all case directories from all groups
         all_case_dirs = []
-        for group_data in groups.values():
+        for group_id, group_data in groups.items():
             for case_id in group_data["expanded_cases"]:
                 all_case_dirs.append(str(run_dir / case_id))
         
-        # Write post_postproc JSON file
-        post_postproc_data = {
+        # Write final_postproc JSON file
+        final_postproc_data = {
             "run_id": run_id,
             "run_dir": str(run_dir),
             "case_dirs": all_case_dirs,
             "groups": list(groups.keys()),
             "global_params": global_params
         }
-        post_postproc_json = run_dir / "_post_postproc.json"
+        final_postproc_json = run_dir / "_final_postproc.json"
         if not dry_run:
-            with open(post_postproc_json, "w", encoding="utf-8") as f:
-                json.dump(post_postproc_data, f, indent=2)
+            with open(final_postproc_json, "w", encoding="utf-8") as f:
+                json.dump(final_postproc_data, f, indent=2)
         
-        print("=== Running post-postproc ===")
-        post_postproc_results = run_postproc(post_postproc, post_postproc_json, dry_run)
-        results["_post_postproc"] = post_postproc_results
+        print("=== Running final postproc ===")
+        final_postproc_results = run_postproc(final_postproc, final_postproc_json, script_dir, dry_run)
+        results["_final_postproc"] = final_postproc_results
         print()
     
     # Save overall results
@@ -471,16 +497,19 @@ Example TOML:
 Usage:
     python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml
     python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml --dry-run
+    python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml --group size_study
 """)
     parser.add_argument("script", help="Python script to run (e.g., src/gs_qpe.py)")
     parser.add_argument("toml_file", help="Path to TOML configuration file")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print commands without executing")
+    parser.add_argument("--group", type=str, default=None,
+                        help="Run only the specified group (default: run all groups)")
     
     args = parser.parse_args()
     
     try:
-        results = run_sweep(args.toml_file, args.script, dry_run=args.dry_run)
+        results = run_sweep(args.toml_file, args.script, dry_run=args.dry_run, group_filter=args.group)
         
         # Print summary
         print("\n=== Summary ===")

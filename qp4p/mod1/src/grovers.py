@@ -4,15 +4,13 @@ Grover's algorithm demonstration
 Sample execution:
     python src/grovers.py
     python src/grovers.py --targets 101 110 --shots 2048
-    python src/grovers.py --backend jakarta --no-display
+    python src/grovers.py --backend jakarta
 """
 
 import argparse
 import json
 import math
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 from qiskit import QuantumCircuit, transpile
 from qiskit.quantum_info import Statevector
 from qiskit.primitives import StatevectorSampler
@@ -37,10 +35,7 @@ if __name__ == "__main__":
                         help="T2 dephasing time in microseconds (default: no noise)")
     parser.add_argument("--backend", type=str, default=None,
                         help="Fake backend name (e.g., 'manila', 'jakarta')")
-    parser.add_argument("--no-display", action="store_true",
-                        help="Disable graphical display of circuit and plots")
     args = parser.parse_args()
-    display = not args.no_display
 
     marked_states = args.targets
     
@@ -82,75 +77,53 @@ if __name__ == "__main__":
             "iterations": iterations,
             "optimal_iterations": optimal_iterations
         },
-        "target_states": marked_states
+        "target_states": marked_states,
+        "num_qubits": num_qubits,
+        "num_states": num_states,
+        "num_marked": num_marked
     }
 
-    # 7. We want an illustrative look under the hood.
-    # Build probability snapshots for each iteration (only if display is enabled)
+    # 7. Build probability snapshots for each iteration for visualization
     # If noise is specified, use shots-based simulation; otherwise use ideal statevector
     use_noise = args.t1 is not None or args.t2 is not None or args.backend is not None
+    
+    target_indices = [int(s, 2) for s in marked_states]
+    probabilities_by_iter = []
 
-    if display:
-        target_indices = [int(s, 2) for s in marked_states]
-        probabilities_by_iter = []
+    for num_iter in range(iterations + 1):
+        if num_iter == 0:
+            # Just uniform superposition (H gates on all qubits)
+            qc_iter = QuantumCircuit(num_qubits)
+            qc_iter.h(range(num_qubits))
+        else:
+            grover_iter = Grover(sampler=sampler, iterations=num_iter)
+            qc_iter = grover_iter.construct_circuit(problem)
+        
+        if use_noise:
+            # Noisy simulation: transpile to basis gates, add measurements, run with noise
+            qc_transpiled = transpile(qc_iter, basis_gates=BASIS_GATES)
+            qc_transpiled.measure_all()
+            run_result = run_circuit(qc_transpiled, shots=args.shots, t1=args.t1, t2=args.t2, backend=args.backend)
+            # Convert counts to probability distribution
+            probs = np.zeros(num_states)
+            for bitstring, count in run_result["counts"].items():
+                idx = int(bitstring, 2)
+                probs[idx] = count / args.shots
+        else:
+            # Ideal simulation: use statevector
+            sv = Statevector.from_instruction(qc_iter)
+            probs = np.abs(sv.data) ** 2
+        
+        probabilities_by_iter.append(probs.tolist())
+    
+    # Store visualization data
+    results["visualization_data"] = {
+        "probabilities_by_iteration": probabilities_by_iter,
+        "target_indices": target_indices,
+        "use_noise": use_noise
+    }
 
-        for num_iter in range(iterations + 1):
-            if num_iter == 0:
-                # Just uniform superposition (H gates on all qubits)
-                qc_iter = QuantumCircuit(num_qubits)
-                qc_iter.h(range(num_qubits))
-            else:
-                grover_iter = Grover(sampler=sampler, iterations=num_iter)
-                qc_iter = grover_iter.construct_circuit(problem)
-            
-            if use_noise:
-                # Noisy simulation: transpile to basis gates, add measurements, run with noise
-                qc_transpiled = transpile(qc_iter, basis_gates=BASIS_GATES)
-                qc_transpiled.measure_all()
-                run_result = run_circuit(qc_transpiled, shots=args.shots, t1=args.t1, t2=args.t2, backend=args.backend)
-                # Convert counts to probability distribution
-                probs = np.zeros(num_states)
-                for bitstring, count in run_result["counts"].items():
-                    idx = int(bitstring, 2)
-                    probs[idx] = count / args.shots
-            else:
-                # Ideal simulation: use statevector
-                sv = Statevector.from_instruction(qc_iter)
-                probs = np.abs(sv.data) ** 2
-            
-            probabilities_by_iter.append(probs)
-
-        # 8. Create combined figure with circuit and iteration plots
-        fig = plt.figure(figsize=(max(16, 4 * (iterations + 1)), 10))
-        gs = GridSpec(2, iterations + 1, figure=fig, height_ratios=[1.2, 1])
-
-        # Top row: circuit diagram spanning all columns
-        ax_circuit = fig.add_subplot(gs[0, :])
-        decomposed = grover_circuit.decompose().decompose()
-        decomposed.draw('mpl', ax=ax_circuit, fold=-1)
-        ax_circuit.set_title("Grover Circuit (decomposed)")
-
-        # Bottom row: probability distributions for each iteration
-        for i, probs in enumerate(probabilities_by_iter):
-            ax = fig.add_subplot(gs[1, i])
-            x = range(len(probs))
-            colors = ['red' if idx in target_indices else 'steelblue' for idx in x]
-            ax.bar(x, probs, color=colors)
-            ax.set_title(f"After {i} iter")
-            ax.set_xlabel("State")
-            ax.set_ylabel("Prob" if i == 0 else "")
-            ax.set_ylim(0, 1)
-            total_target_prob = sum(probs[idx] for idx in target_indices)
-            ax.text(0.95, 0.95, f"P={total_target_prob:.2f}", 
-                    transform=ax.transAxes, ha='right', va='top', color='red', fontsize=9)
-
-        target_labels = ", ".join(f"|{s}⟩" for s in marked_states)
-        noise_label = f" (T1={args.t1}µs, T2={args.t2}µs)" if use_noise else " (ideal)"
-        fig.suptitle(f"Grover's Algorithm: {target_labels}{noise_label}", fontsize=14)
-        plt.tight_layout()
-        plt.show()
-
-    # 9. Now actually run the algorithm with optional noise
+    # 8. Now actually run the algorithm with optional noise
     # Transpile to basis gates and add measurements for shots-based execution
     grover_with_meas = transpile(grover_circuit, basis_gates=BASIS_GATES)
     grover_with_meas.measure_all()

@@ -1,16 +1,16 @@
 # QPE Ground State Energy Sweep Configuration
-# Run with: python -m qp4p_sweeper src/gs_qpe.py input/gs_qpe.toml
+# Run with: python -m qp4p_sweeper mod1/src/gs_qpe.py mod1/input/gs_qpe.toml
 
 [global]
 _output_dir = "~/qp4p"
-_post_postproc = "python src/postproc_echo.py"
+_group_postproc = "python -m postproc.qpe_viz"
+_final_postproc = "python -m qp4p_image_gallery"
 
 # H2 shots convergence study
 [h2_shots]
 molecule = "H2"
 ancilla = 6
 shots = [1024, 2048, 4096, 8192]
-_postproc = "python src/postproc_echo.py"
 
 # H2 ancilla precision study
 [h2_ancilla]
@@ -31,3 +31,16 @@ molecule = ["H2", "HeH+"]
 shots = 8192
 ancilla = 6
 
+# Noiseless baseline for HeH+
+[heh_baseline]
+molecule = "HeH+"
+shots = 4096
+ancilla = 6
+
+# Noise study on HeH+ with varying T1/T2
+[heh_noise]
+molecule = "HeH+"
+shots = 4096
+ancilla = 6
+t1 = [1, 5, 50]
+t2 = [1, 5]

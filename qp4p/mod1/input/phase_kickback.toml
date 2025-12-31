@@ -1,0 +1,18 @@
+# Phase Kickback Sweep
+
+[global]
+_output_dir = "~/qp4p"
+_group_postproc = "python -m postproc.phase_kickback_viz"
+_final_postproc = "python -m qp4p_image_gallery"
+
+# Baseline: no noise
+[baseline]
+
+# Noise study: impact of T1/T2 on phase kickback fidelity
+[noise_study]
+t1 = [50, 100, 200]
+t2 = [40, 80, 160]
+
+# Backend comparison
+[backend_study]
+backend = ["manila", "jakarta"]

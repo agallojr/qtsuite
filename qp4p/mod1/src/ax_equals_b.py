@@ -26,7 +26,6 @@ Sample execution:
 import argparse
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
 from qiskit import QuantumCircuit, transpile
@@ -252,22 +251,17 @@ if __name__ == "__main__":
                         help="Ansatz repetitions/depth (default: 3)")
     parser.add_argument("--backend", type=str, default=None,
                         help="Fake backend name for transpilation (e.g., 'manila', 'jakarta')")
-    parser.add_argument("--no-display", action="store_true",
-                        help="Disable graphical display")
     args = parser.parse_args()
-    display = not args.no_display
 
     # 1. Generate or parse the system
     if args.size is not None:
         A_orig, b_orig = generate_random_system(args.size, args.seed)
-        print(f"Generated random {args.size}x{args.size} system (seed={args.seed})...")
     elif args.a is not None and args.b is not None:
         A_orig = parse_matrix(args.a)
         b_orig = parse_vector(args.b)
     else:
         # Default 4x4 example
         A_orig, b_orig = generate_random_system(4, seed=42)
-        print("Using default random 4x4 system (seed=42)...")
     
     validate_system(A_orig, b_orig)
     n_orig = A_orig.shape[0]
@@ -280,19 +274,11 @@ if __name__ == "__main__":
     n = A.shape[0]
     num_qubits = int(np.log2(n))
     
-    if n != n_orig:
-        print(f"Padded {n_orig}x{n_orig} to {n}x{n} ({num_qubits} qubits)...")
-    else:
-        print(f"Solving {n}x{n} system ({num_qubits} qubits)...")
-    
     # 3. Solve with VQLS
-    print(f"Running VQLS optimization (max {args.maxiter} iterations, reps={args.reps})...")
     quantum_x_full, ansatz, optimal_params, opt_result = solve_vqls(A, b, args.maxiter, args.reps)
     
     # Extract original components
     quantum_x = quantum_x_full[:n_orig]
-    
-    print(f"Optimization finished: {opt_result.nfev} function evaluations, final cost: {opt_result.fun:.6f}")
     
     # 4. Compute fidelity
     fidelity = compute_fidelity(classical_x, quantum_x)
@@ -343,25 +329,3 @@ if __name__ == "__main__":
     
     # 7. Print results
     print(json.dumps(results, indent=2))
-    
-    # 7. Display - bar chart comparing solution components
-    if display:
-        fig, ax = plt.subplots(figsize=(max(8, n_orig), 6))
-        
-        x_indices = np.arange(n_orig)
-        width = 0.35
-        
-        bars1 = ax.bar(x_indices - width/2, classical_x, width, label='Classical', color='steelblue')
-        bars2 = ax.bar(x_indices + width/2, quantum_x, width, label='VQLS', color='coral')
-        
-        ax.set_xlabel('Solution component index')
-        ax.set_ylabel('Value')
-        ax.set_title(f'Ax=b Solution Comparison ({n_orig}x{n_orig} system)\n'
-                    f'Fidelity: {fidelity:.4f} | Condition #: {np.linalg.cond(A_orig):.1f}')
-        ax.set_xticks(x_indices)
-        ax.legend()
-        ax.axhline(y=0, color='k', linewidth=0.5)
-        ax.grid(True, alpha=0.3, axis='y')
-        
-        plt.tight_layout()
-        plt.show()

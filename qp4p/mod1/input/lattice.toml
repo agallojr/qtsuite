@@ -1,0 +1,47 @@
+# Ising Model VQE Lattice Sweep
+
+[global]
+_output_dir = "~/qp4p"
+_group_postproc = "python -m postproc.lattice_viz"
+_final_postproc = "python -m qp4p_image_gallery"
+
+# Baseline: small lattice
+[baseline]
+rows = 2
+cols = 2
+maxiter = 100
+
+# Size study: compare different lattice sizes
+[size_study]
+rows = [2, 3, 4]
+cols = [2, 3, 4]
+maxiter = 150
+
+# Interaction study: ferromagnetic vs antiferromagnetic
+[interaction_study]
+rows = 3
+cols = 3
+interaction = [-1.0, 0.0, 1.0]
+maxiter = 150
+
+# Ansatz comparison
+[ansatz_study]
+rows = 3
+cols = 3
+ansatz = ["simple", "standard"]
+maxiter = 200
+
+# Optimizer comparison
+[optimizer_study]
+rows = 3
+cols = 3
+optimizer = ["COBYLA", "SLSQP", "SPSA"]
+maxiter = 150
+
+[4x4]
+rows = 4
+cols = 4
+maxiter = [2, 20, 200, 2000]
+optimizer = ["COBYLA"]
+boundary = ["open"]
+

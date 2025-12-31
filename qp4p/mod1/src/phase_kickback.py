@@ -10,14 +10,11 @@ The Z gate has eigenvalue -1 for |1⟩, so the phase -1 kicks back to the contro
 Sample execution:
     python src/phase_kickback.py
     python src/phase_kickback.py --t1 50 --t2 40
-    python src/phase_kickback.py --no-display
 """
 
 import json
 
 from qiskit import QuantumCircuit
-from qiskit.visualization import plot_histogram
-import matplotlib.pyplot as plt
 
 from qp4p_circuit import run_circuit
 
@@ -50,8 +47,7 @@ def make_circuit_phase_kickback(x_gate: bool) -> QuantumCircuit:
     return qc
 
 
-def run_example_kickback(t1: float = None, t2: float = None, display: bool = True,
-                         backend: str = None):
+def run_example_kickback(t1: float = None, t2: float = None, backend: str = None):
     """Run both circuits and compare results."""
     # With kickback (X gate on target)
     qc_kick = make_circuit_phase_kickback(x_gate=True)
@@ -65,7 +61,7 @@ def run_example_kickback(t1: float = None, t2: float = None, display: bool = Tru
     result_kick = run_circuit(qc_kick, t1=t1, t2=t2, backend=backend)
     result_no_kick = run_circuit(qc_no_kick, t1=t1, t2=t2, backend=backend)
     
-    # Build results
+    # Build results with visualization data
     results = {
         "with_kickback": {
             "counts": result_kick["counts"],
@@ -88,27 +84,6 @@ def run_example_kickback(t1: float = None, t2: float = None, display: bool = Tru
     # Output JSON to stdout
     print(json.dumps(results, indent=2))
     
-    if display:
-        # Plot
-        _, axes = plt.subplots(2, 2, figsize=(12, 8))
-        
-        qc_kick_draw = make_circuit_phase_kickback(x_gate=True)
-        qc_kick_draw.draw("mpl", ax=axes[0, 0])
-        axes[0, 0].set_title("With Kickback (target=|1⟩)")
-        
-        plot_histogram(result_kick["counts"], ax=axes[0, 1])
-        axes[0, 1].set_title("Results: control -> |1⟩")
-        
-        qc_no_kick_draw = make_circuit_phase_kickback(x_gate=False)
-        qc_no_kick_draw.draw("mpl", ax=axes[1, 0])
-        axes[1, 0].set_title("No Kickback (target=|0⟩)")
-        
-        plot_histogram(result_no_kick["counts"], ax=axes[1, 1])
-        axes[1, 1].set_title("Results: control -> |0⟩")
-        
-        plt.tight_layout()
-        plt.show()
-    
     return results
 
 
@@ -122,10 +97,7 @@ if __name__ == "__main__":
                         help="T1 relaxation time in µs (default: None = no noise)")
     parser.add_argument("--t2", type=float, default=None,
                         help="T2 dephasing time in µs (default: None = no noise)")
-    parser.add_argument("--no-display", action="store_true",
-                        help="Suppress plot display")
     parser.add_argument("--backend", type=str, default=None,
                         help="Fake backend name (e.g., 'manila', 'jakarta')")
     args = parser.parse_args()
-    run_example_kickback(t1=args.t1, t2=args.t2, display=not args.no_display,
-                         backend=args.backend)
+    run_example_kickback(t1=args.t1, t2=args.t2, backend=args.backend)

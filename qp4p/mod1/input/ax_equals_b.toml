@@ -1,0 +1,29 @@
+# Linear System Solver (Ax=b) Sweep using VQLS
+
+[global]
+_output_dir = "~/qp4p"
+_group_postproc = "python -m postproc.linear_system_viz"
+_final_postproc = "python -m qp4p_image_gallery"
+
+# Baseline: small system
+[baseline]
+size = 2
+seed = 42
+
+# Size study: compare different system sizes
+[size_study]
+size = [2, 4]
+seed = 42
+maxiter = 300
+
+# Optimizer iteration study
+[iteration_study]
+size = 4
+seed = 42
+maxiter = [100, 200, 400]
+
+# Ansatz depth study
+[depth_study]
+size = 4
+seed = 42
+reps = [2, 3, 4, 5]

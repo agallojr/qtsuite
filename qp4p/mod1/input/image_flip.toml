@@ -1,0 +1,23 @@
+# Image Flip Sweep 
+
+[global]
+_output_dir = "~/qp4p"
+_group_postproc = "python -m postproc.image_viz"
+_final_postproc = "python -m qp4p_image_gallery"
+
+# Size study: test different image sizes
+[size_study]
+size = [4, 8]
+shots = 2048
+
+# Shots convergence study for 4x4 images
+[shots_study]
+size = 8
+shots = [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
+
+# Noise study: impact of T1/T2 on fidelity
+[noise_study]
+size = 8
+shots = 2048
+t1 = [50, 100, 200]
+t2 = [40, 80, 160]

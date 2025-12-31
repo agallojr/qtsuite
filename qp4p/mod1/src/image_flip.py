@@ -11,7 +11,6 @@ import argparse
 import json
 import numpy as np
 from qiskit import QuantumCircuit
-import matplotlib.pyplot as plt
 
 from qp4p_circuit import run_circuit, estimate_shots
 from qp4p_util import load_or_generate_image, validate_power_of_2
@@ -134,12 +133,9 @@ if __name__ == "__main__":
                         help="T1 relaxation time in microseconds (default: no noise)")
     parser.add_argument("--t2", type=float, default=None,
                         help="T2 dephasing time in microseconds (default: no noise)")
-    parser.add_argument("--no-display", action="store_true",
-                        help="Disable graphical display of images")
     parser.add_argument("--backend", type=str, default=None,
                         help="Fake backend name (e.g., 'manila', 'jakarta')")
     args = parser.parse_args()
-    display = not args.no_display
 
     # 1. Load and preprocess the image
     pixels = load_or_generate_image(args.image, args.size)
@@ -175,7 +171,7 @@ if __name__ == "__main__":
     # Compute fidelity
     fidelity = compute_fidelity(expected_mirrored, mirrored_image)
 
-    # 6. Build results dict
+    # 6. Build results dict with visualization data
     results = {
         "image": {
             "size": args.size,
@@ -194,22 +190,16 @@ if __name__ == "__main__":
             "t1_us": args.t1,
             "t2_us": args.t2
         },
-        "backend_info": json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None
+        "backend_info": json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None,
+        "visualization_data": {
+            "original_image": original_image.tolist(),
+            "mirrored_image": mirrored_image.tolist(),
+            "expected_mirrored": expected_mirrored.tolist(),
+            "fidelity": float(fidelity)
+        }
     }
 
     # 7. Print results as JSON
     print(json.dumps(results, indent=2))
-
-    # 8. Display source and result images side by side
-    if display:
-        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-        axes[0].imshow(original_image, cmap='gray', vmin=0, vmax=255)
-        axes[0].set_title("Original Image")
-        axes[0].axis('off')
-        axes[1].imshow(mirrored_image, cmap='gray', vmin=0, vmax=255)
-        axes[1].set_title(f"Quantum Mirror (fidelity={fidelity:.3f})")
-        axes[1].axis('off')
-        plt.tight_layout()
-        plt.show()
 
 

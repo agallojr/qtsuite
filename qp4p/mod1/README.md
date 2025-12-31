@@ -6,7 +6,7 @@
 
 - Intermediate-level Python programming skills, including familiarity with functions, classes, libraries such as numpy and matplotlib, and the use of virtual environments or other means to manage dependencies.
 
-- A working Python environment set to the libraries published for the class. We recommend the use of uv (https://docs.astral.sh/uv/). We have published a specification file (see ../pyproject.toml) that defines the required dependencies. Sample code will be provided to verify the environment. Come to class with a working environment as we will not have time to troubleshoot environment issues during class.
+- A working Python environment set to the libraries published for the class. We recommend the use of uv (https://docs.astral.sh/uv/). We have published a specification file (see ../pyproject.toml) that defines the required dependencies. Sample code will be provided to verify the environment. Please come to class with a working environment as we will not have time to troubleshoot environment issues during class.
 
 - Read "Quantum Computation and Quantum Information" by Mike & Ike, Chapters 1-4, 7, or seek alternative introductory materials to build foundational understanding on topics such as: qubits, gates, quantum circuits, quantum states, superposition, entanglement, and measurement. Take a refresher on linear algebra concepts if needed, also complexity of algorithms and "big O" notation. Read a comparison of various qubit technologies to understand their trade-offs.
 
