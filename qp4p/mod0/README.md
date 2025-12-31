@@ -43,7 +43,9 @@ Suitable for a general audience of programming practitioners, this overview modu
 - HPC
 - traveling salesman
 - research grade software
-
+- transpilation
+- workflow
+- IBM 4 steps
 
 
 For an N×N image:

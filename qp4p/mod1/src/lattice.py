@@ -23,6 +23,7 @@ from qiskit_nature.second_q.hamiltonians.lattices import SquareLattice
 from qiskit_nature.second_q.hamiltonians.lattices.boundary_condition import BoundaryCondition
 from qiskit_aer import AerSimulator
 from qiskit.primitives import StatevectorEstimator
+from qiskit_aer.primitives import EstimatorV2
 
 from qp4p_circuit import build_noise_model
 
@@ -161,6 +162,10 @@ def run_vqe(args):
     output["hamiltonian"]["num_terms"] = int(len(qubit_hamiltonian))
     
     ansatz = get_ansatz(num_qubits, args.ansatz)
+    
+    # Decompose the ansatz to basic gates for Aer compatibility
+    ansatz = ansatz.decompose().decompose()
+    
     optimizer = get_optimizer(args.optimizer, args.maxiter)
     
     output["vqe_config"] = {
@@ -170,22 +175,37 @@ def run_vqe(args):
         "optimizer": args.optimizer,
         "max_iterations": int(args.maxiter),
         "random_seed": int(args.seed),
-        "simulator": "StatevectorEstimator"
+        "simulator": "EstimatorV2"
     }
     
-    # Use StatevectorEstimator for reliable VQE compatibility
-    # Note: T1/T2 noise parameters accepted but not applied due to estimator limitations
+    # Create estimator with optional noise model
+    noise_model = None
     if args.t1 > 0 and args.t2 > 0:
+        noise_model, _ = build_noise_model(t1=args.t1 * 1e6, t2=args.t2 * 1e6)
         output["vqe_config"]["noise"] = {
             "t1_seconds": args.t1,
             "t2_seconds": args.t2,
             "t1_microseconds": args.t1 * 1e6,
             "t2_microseconds": args.t2 * 1e6,
-            "applied": False,
-            "note": "StatevectorEstimator does not support noise - parameters ignored"
+            "applied": True
         }
     
-    estimator = StatevectorEstimator()
+    if noise_model is not None:
+        estimator = EstimatorV2(
+            options={
+                "default_precision": 0.01,
+                "backend_options": {
+                    "method": "statevector",
+                    "noise_model": noise_model,
+                }
+            }
+        )
+    else:
+        estimator = EstimatorV2(
+            options={
+                "default_precision": 0.01,
+            }
+        )
     
     energy_history = []
     

@@ -30,6 +30,7 @@ def create_lattice_visualization(data, output_file=None, display=True):
     lattice_config = data.get("lattice", {})
     viz_data = data.get("visualization_data", {})
     vqe_results = data.get("vqe_results", {})
+    classical_gs = data.get("classical_ground_state", {})
     
     rows = lattice_config.get("rows", 0)
     cols = lattice_config.get("cols", 0)
@@ -38,6 +39,7 @@ def create_lattice_visualization(data, output_file=None, display=True):
     energy_history = viz_data.get("energy_history", [])
     ground_state_spins = viz_data.get("ground_state_spins", [])
     final_energy = vqe_results.get("ground_state_energy", 0.0)
+    classical_energy = classical_gs.get("energy", None)
     
     fig = plt.figure(figsize=(10, 5))
     gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
@@ -115,14 +117,17 @@ def create_lattice_visualization(data, output_file=None, display=True):
     
     # Plot 5: Energy convergence
     if energy_history:
-        ax4.plot(energy_history, 'b-', linewidth=2)
+        ax4.plot(energy_history, 'b-', linewidth=2, label='VQE optimization')
         ax4.axhline(y=final_energy, color='r', linestyle='--',
-                    label=f'Final energy: {final_energy:.4f}')
+                    label=f'VQE final: {final_energy:.4f}')
+        if classical_energy is not None:
+            ax4.axhline(y=classical_energy, color='g', linestyle=':',
+                        linewidth=2, label=f'Classical GS: {classical_energy:.4f}')
         ax4.set_xlabel('VQE Iteration', fontsize=8)
         ax4.set_ylabel('Energy', fontsize=8)
         ax4.set_title('VQE Energy Convergence', fontsize=9, fontweight='bold')
         ax4.grid(True, alpha=0.3)
-        ax4.legend()
+        ax4.legend(fontsize=7)
     
     plt.tight_layout()
     
