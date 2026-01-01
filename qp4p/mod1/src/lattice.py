@@ -180,17 +180,45 @@ def run_vqe(args):
     
     # Create estimator with optional noise model
     noise_model = None
-    if args.t1 > 0 and args.t2 > 0:
-        noise_model, _ = build_noise_model(t1=args.t1 * 1e6, t2=args.t2 * 1e6)
-        output["vqe_config"]["noise"] = {
-            "t1_seconds": args.t1,
-            "t2_seconds": args.t2,
-            "t1_microseconds": args.t1 * 1e6,
-            "t2_microseconds": args.t2 * 1e6,
-            "applied": True
-        }
+    fake_backend = None
     
-    if noise_model is not None:
+    # Use qp4p helper to build noise model from backend or T1/T2
+    if args.backend or (args.t1 > 0 and args.t2 > 0):
+        t1_us = args.t1 * 1e6 if args.t1 > 0 else None
+        t2_us = args.t2 * 1e6 if args.t2 > 0 else None
+        noise_model, fake_backend = build_noise_model(
+            t1=t1_us, 
+            t2=t2_us, 
+            backend=args.backend
+        )
+        
+        if args.backend:
+            output["vqe_config"]["noise"] = {
+                "backend": args.backend,
+                "source": "IBM fake backend",
+                "applied": True
+            }
+        else:
+            output["vqe_config"]["noise"] = {
+                "t1_seconds": args.t1,
+                "t2_seconds": args.t2,
+                "t1_microseconds": t1_us,
+                "t2_microseconds": t2_us,
+                "applied": True
+            }
+    
+    if fake_backend is not None:
+        # Use the fake backend directly with EstimatorV2
+        estimator = EstimatorV2(
+            options={
+                "default_precision": 0.01,
+                "backend_options": {
+                    "method": "statevector",
+                    "noise_model": noise_model,
+                }
+            }
+        )
+    elif noise_model is not None:
         estimator = EstimatorV2(
             options={
                 "default_precision": 0.01,
@@ -344,6 +372,8 @@ Examples:
         help='T1 relaxation time in seconds (default: 0.0, no noise)')
     parser.add_argument('--t2', type=float, default=0.0,
         help='T2 dephasing time in seconds (default: 0.0, no noise)')
+    parser.add_argument('--backend', type=str, default=None,
+        help='IBM backend name to use for noise model (e.g., manila, lagos)')
     
     args = parser.parse_args()
 

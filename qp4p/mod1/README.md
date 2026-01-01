@@ -54,7 +54,16 @@ Suitable for a research audience of programming practitioners, this module helps
 - QASM
 - role of uncomputation
 - traveling salesman
+- teleportation
 - kinds of error - stochastic
+- no cloning
+- P and NP
+- provenance
+- error models and characterization, mitigation techniques
+- magic states
+- formulating as a Hamiltonian
+- max cut
+- QFT
 
 Bell vs GHZ
 \(|\Phi ^{+}\rangle =\frac{|00\rangle +|11\rangle }{\sqrt{2}}\): Both qubits are \(|0\rangle \) or both are \(|1\rangle \).\(|\Psi ^{+}\rangle =\frac{|01\rangle +|10\rangle }{\sqrt{2}}\): On

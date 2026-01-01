@@ -320,13 +320,17 @@ def run_circuit_display(circ: QuantumCircuit, t1: float = None, t2: float = None
     
     # Only show graphical display if requested
     if display:
-        _, axes = plt.subplots(1, 2, figsize=(12, 4))
+        # Create main figure with circuit and histogram
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
         circ.draw("mpl", ax=axes[0])
         plot_histogram(run_result["counts"], ax=axes[1])
         plt.tight_layout()
+        
+        # Create separate figure for Bloch sphere
         circ_no_meas = circ.remove_final_measurements(inplace=False)
         sv = Statevector.from_instruction(circ_no_meas)
         plot_bloch_multivector(sv)
+        
         plt.show()
     return run_result
 

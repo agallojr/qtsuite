@@ -24,6 +24,6 @@ rows = 3
 cols = 3
 maxiter = [2, 20, 200, 2000]
 optimizer = ["COBYLA"]
-t1 = 100e-6
-t2 = 200e-6
-
+#t1 = 100e-6
+#t2 = 200e-6
+backend = "manila"

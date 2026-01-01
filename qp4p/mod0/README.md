@@ -26,154 +26,50 @@ Suitable for a general audience of programming practitioners, this overview modu
 
 ## Module 0: Topics
 
-- hype 
-- provenance
-- real backend error info changes, calibration
-- hello world 
-- error mitigation
-- teleportation
-- P and NP
-- no cloning
-- physical observables
-- real backends - IBM, AWS - this class will use sims
-- HPC - this class will not use HPC
-- magic vs. pure states
-- advantage vs. utility
-- algorithm zoo
-- HPC
-- traveling salesman
-- research grade software
-- transpilation
-- workflow
-- IBM 4 steps
++ Introduction and Overview
+    - Executive context
+    - Course overview and objectives: modules 1, 2, 3
+    - What is quantum computing? Feynman's vision, probabilistic nature
+    - Why study quantum computing? performance & scale beyond classical, Hilbert space
+    - tl;dr: safely ignore for now, abstractions will arrive before production utility
+    - Utility & advantage: for what, when?
+    - Current hardware landscape: hype & reality, types & connections, size, calibration
+    - Noise & error mitigation: code examples allow studying impact of noise
+    - Current software landscape: maturity, interop, abstractions, circuits & pulses, IDEs
+    - IBM & NVIDIA, Python & C++, estimation
 
++ Quantum basics 
+    - qubits vs. bits (code: state preparation & measurement, phase, magic, Bloch sphere)
+    - superposition & Schrödinger's cat (code: Hadamard gate)
+    - entanglement & the multi-body problem (code: Bell / GHZ states)
+    - amplitude encoding (code: amplitude, image mirroring shots study)
+    - phase kickback (code: phase_kickback)
+    - observables
 
-For an N×N image:
++ Quantum programming framework
+    - Map the problem to a quantum-native and/or quantum-classical formulation
+    - Optimize and transpile for the target hardware
+    - Execute on quantum hardware or simulator
+    - Analyze and post-process results
+    - Mapping problems to known problems: complexity classes
 
-Total pixels = N²
-Qubits needed = log₂(N²) = 2·log₂(N)
-Column qubits = log₂(N) (half of total)
-SWAP gates = floor(log₂(N) / 2)
-Examples:
++ Hybrid quantum-classical
+    - Variational algorithms, pre- & post-processing
+    - HPC co-scheduling vs. cloud QPUs, new accelerator(s)
+    - workflows & metadata
 
-Image Size	Qubits	Column Qubits	SWAP Gates
-4×4	4	2	1
-8×8	6	3	1
-16×16	8	4	2
-32×32	10	5	2
-64×64	12	6	3
-The number of SWAPs grows as O(log N) — very efficient.
++ Overview of quantum algorithms
+    - Shor's factoring: enterprise IT use cases
+    - Grover's search (code: grovers)
+    - Linear systems (code: ax=b): module 2 details CFD use cases
+    - Variational Quantum Eigensolver (code: lattice): issues with NISQ variational algorithms
+    - Quantum Phase Estimation (code: gs_qpe): module 3 details MAT use cases
+    - other: QAOA, QML, TSP
+    - formulating as a Hamiltonian
+    - Algorithm Zoo
 
-
-i don't undersrand how this woeks with so few swap gates
-The key insight is that we're not swapping pixels — we're swapping the meaning of qubit positions.
-
-In amplitude encoding, each basis state |i⟩ corresponds to a pixel index. For a 4×4 image with 4 qubits:
-
-Qubits 0-1 encode the column (0-3)
-Qubits 2-3 encode the row (0-3)
-A pixel at position (row=2, col=1) is stored in amplitude of state |0110⟩ (row bits: 10, col bits: 01).
-
-Horizontal flip means: pixel at col=1 should move to col=2, col=0→col=3, etc. In binary:
-
-col 0 (00) → col 3 (11)
-col 1 (01) → col 2 (10)
-col 2 (10) → col 1 (01)
-col 3 (11) → col 0 (00)
-This is just reversing the bit order of the column qubits. One SWAP between qubit 0 and qubit 1 does exactly that:
-
-|00⟩ → |00⟩
-|01⟩ → |10⟩
-|10⟩ → |01⟩
-|11⟩ → |11⟩
-The SWAP gate simultaneously transforms all 16 amplitudes in superposition. That's the quantum parallelism — one gate affects all basis states at once.
-
-For larger images, you need more SWAPs to reverse more column bits, but it's still just reversing bit order, not moving individual pixels.
-
-
-
-
-
-
-+ mod0
-    - how large a GHZ state can you practically construct on sim? without and with noise?
-    - UQ of GHZ state as a function of qubits, t1, t2
-    - amplitude encoding, Hilbert space
-    - how large an image can you mirror, to some fidelity? with and without noise in the sim? what is the impediment? how could we leverage HPC in this problem? what's the impact of shots?
-    - understand what's happening in grover's algorithm - what is the impact of iterations? shots? what's a potential application of grover's?
-
-
-
-
-
-How does quantum programming differ from classical? Are there applications today, if not, when?
-
-Suitable for a general audience of programming practitioners in the businesses, this overview module introduces the fundamental concepts of quantum computing including qubits, superposition, entanglement, quantum gates, circuits, and how these concepts differ from or are unique compared to classical programming. It covers the basic quantum computing workflow, performance limitations, and key algorithms in quantum computing for searching unsorted data, prime factorization, optimization, and solving linear systems of equations. The module also explores modeling quantum systems using quantum computing techniques and interim hybrid quantum-classical algorithms for quantum chemistry applications. Attendees will gain exposure to the roadmaps of leading quantum hardware and software providers and their projections for quantum utility or advantage in specific applications. A study guide for personal follow-up will be provided, and an optional office hour session will subsequently be made available.
-
-
-    + executive introduction
-    + fundamental differences from classical programming
-        - hardware awareness: size, noise, connectivity; current calibration
-        - error correction awareness
-        - quantum states and measurement
-        - probabilistic outcomes
-        - Hilbert space
-    + similarities to classical programming
-        - gates, circuits
-        - accelerator model, HPC
-        - programming workflow: design, code, optimize, execute, analyze
-        - languages, SDKs, cloud access - when native quantum programming abstractions?
-        - IDEs: Classiq
-    + quantum concepts in code examples
-        - qubit
-        - superposition
-        - entanglement
-        - phase kickback
-        - algorithms: Grover's, Shor's, QPE, VQE - algorithm zoo
-    + quantum advantage & roadmap
-        - when and why QC may provide advantage over classical computing
-        - uses: chemistry, cryptography, quantum linear systems, quantum machine learning
-        - criteria for advantage: speed, accuracy, problem types, logical qubits at scale, hybrid connectivity
-        - roadmap to advantage, current state of the art, DARPA metrics
-        - cryptography implications
-    + QP4P class overview
-        - key takeaways / value proposition for each module, topics
-        - lab activities
-        - pre-work / post-work
-        - schedule
-        - SME speakers
-        - how to sign up
-
-
-
-+ Summary Module
-    + Key takeaways / value proposition
-    + Quantum algorithms overview
-    + Lecture
-        - tl;dr: safely ignore for now, abstractions will arrive before production utility
-        - Feynman, qubit, superposition, interference, entanglement, Hilbert, no cloning, qubit noise, coherence, gate noise
-        - comparison to classical computing, other programming paradigms
-        - probabilistic outcomes, measurement, experimental perspective
-        - qubit types, hardware types, quantum volume
-        - when advantage? criteria, roadmap, DARPA
-        - uses: chemistry, cryptography, QLSA, QML
-        - Criteria for advantage: speed, accuracy, problem types, logical qubits at scale, hybrid connectivity
-        - future: higher-level abstractions for scale, AI coder & hybrid accelerator delegation 
-        - what criteria should be met to make QC an option?
-        - cryptography implications
-    + algorithms
-        - Grover's, Shor's, Max Cut, VQE, QPE; 
-    + tooling
-        - workflow: map (design, code), optimize (pipeline), execute, analyze
-        - SDKs: Qiskit & other circuit libs, circuit interop, pipeline plugins, sims, cloud
-        - estimation
-    + applied toys
-        - quantum teleportation
-        - Ax=b
-        - ground state energy of H2
-        - estimation of resources
-
-
++ QP4P class: final plug
+    - modules, labs, pre-reqs, schedule, SMEs, sign-up
 
 
 ## Module Library Dependencies
@@ -205,6 +101,17 @@ Quantum computing by its nature at this time can create many pieces of interim a
 Additionally, quantum solutions at this time are often hybrid classical-quantum approaches where the classical part can itself be heavyweight and a bottleneck. HPC is useful here. The student is encouraged to consider which workflow tools work best for them in managing these hybrid workloads, such as containerization, with on-prem and cloud orchestration.
 
 
+## Module 0 Post-Work
 
+If you intend to take module 1, we suggest reviewing these questions to better prepare:
 
+- How large a GHZ state can you practically construct on your machine? without and with noise?
+
+- At the edge of the GHZ state you can simulate, after multiple runs, what can be said about the reliability and consistency of the results? as a function of qubits, t1, t2?
+
+- How large an image can you mirror, to what fidelity? with and without noise in the sim? what is the impediment? how might we leverage classical HPC in this problem? what's the impact of shots?
+
+- Run a study of the lattice model, to understand the impact of size, ansatz, noise, optimizer, and iterations. Experiment with models of different legacy IBM machines (backends) and compare performance.
+
+- See also the documentation for Module 1: mod1/README.md for more pre-requisites.
 

@@ -1,5 +1,11 @@
 """
-Qubit examples
+Qubit examples.
+To see the arguments, run:
+python mod0/src/qubits.py -h
+
+There are examples of quantum state preparation, use of Hadamard gates for superposition,
+a GHZ state to demonstrate entanglement, and more. You can pass in arguments to set error, 
+or run on an idealized simulator.
 """
 
 import math
@@ -58,12 +64,24 @@ def circuit_amplitude_encoding(n: int, data_vector: List[float]) -> QuantumCircu
     """
     Prepare an amplitude encoded state.
     
+    Amplitude encoding maps classical data into quantum amplitudes, allowing exponential
+    compression: 2^n classical values fit into n qubits. Each value becomes the probability
+    amplitude of a basis state. When measured, the quantum state collapses to one basis state
+    with probability equal to the square of its amplitude.
+    
     Args:
         n: Maximum number of qubits allowed
         data_vector: Normalized amplitudes (length must be power of 2, sum of squares = 1)
     
     Example:
-        data_vector = [0.5, 0.5, 0.5, 0.5]  # data is normalized: (0.5)^2 * 4 = 1
+        data_vector = [0.5, 0.5, 0.5, 0.5]  # 4 values → 2 qubits (2^2 = 4)
+        # Creates state: 0.5|00> + 0.5|01> + 0.5|10> + 0.5|11>
+        # Normalized: (0.5)^2 * 4 = 1.0
+        # Each basis state has 25% measurement probability
+        
+        data_vector = [0.5, 0, 0.5, 0, 0.5, 0, 0.5, 0]  # 8 values → 3 qubits (2^3 = 8)
+        # Creates state: 0.5|000> + 0.5|010> + 0.5|100> + 0.5|110>
+        # Only even-indexed states have non-zero amplitude
     """    
     length = len(data_vector)
     if length == 0 or (length & (length - 1)) != 0:
@@ -91,7 +109,7 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   python qubits.py prep 
-  python qubits.py prep -n 5 --state --phase 1.57 --t1 50 --t2 30
+  python qubits.py prep -n 5 --state 1 --phase 1.57 --t1 50 --t2 30
 
   python qubits.py hadamard
   python qubits.py hadamard -n 4 --t1 50 --t2 30
@@ -106,16 +124,16 @@ if __name__ == "__main__":
                         help="Which example to run")
     parser.add_argument("-n", type=int, default=3,
                         help="Number of qubits (default: 3)")
-    parser.add_argument("--state", action="store_true",
-                        help="Prepare qubits in |1> state instead of |0>")
+    parser.add_argument("--state", type=int, choices=[0, 1], default=0,
+                        help="Prepare qubits in |0> or |1> state (default: 0)")
     parser.add_argument("--phase", type=float, default=0.0,
                         help="Phase angle in radians to apply (default: 0)")
     parser.add_argument("--t1", type=float, default=None,
                         help="T1 relaxation time in µs (default: None = no noise)")
     parser.add_argument("--t2", type=float, default=None,
                         help="T2 dephasing time in µs (default: None = no noise)")
-    parser.add_argument("--data", type=float, nargs='+', default=None,
-                        help="Data vector for amplitude encoding (list of floats)")
+    parser.add_argument("--data", type=float, nargs='+', default=[0.5, 0.5, 0.5, 0.5],
+                        help="Data vector for amplitude encoding (default: [0.5, 0.5, 0.5, 0.5])")
     parser.add_argument("--no-display", action="store_true",
                         help="Disable graphical display of circuit and histogram")
     args = parser.parse_args()
