@@ -9,9 +9,11 @@ from qiskit.visualization import plot_histogram, plot_bloch_multivector
 from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
 from qiskit_aer.noise import NoiseModel, thermal_relaxation_error
+from qiskit.primitives import StatevectorEstimator
 from qiskit_aer.primitives import EstimatorV2
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from qiskit.transpiler import CouplingMap
 from qiskit_ibm_runtime import fake_provider
-
 import matplotlib.pyplot as plt
 
 # Basis gates supported by Aer simulator
@@ -138,7 +140,7 @@ def get_backend_info(backend) -> dict:
 
 
 def build_noise_model(t1: float = None, t2: float = None, 
-                      backend: str = None) -> tuple:
+                      backend: str = None, coupling_map: str = "default") -> tuple:
     """
     Build a noise model from T1/T2 parameters and/or a fake backend.
     
@@ -146,20 +148,33 @@ def build_noise_model(t1: float = None, t2: float = None,
         t1: T1 relaxation time in microseconds (energy decay). None = no noise.
         t2: T2 dephasing time in microseconds. Must be <= 2*T1.
         backend: Name of fake backend (e.g., 'manila', 'jakarta'). Case-insensitive.
+        coupling_map: Coupling map to use. Options:
+            - "default": Use backend's coupling map (if backend specified)
+            - "all-to-all": Full connectivity (all qubits connected)
     
     Returns:
-        Tuple of (noise_model, fake_backend) where either may be None.
+        Tuple of (noise_model, fake_backend, coupling_map_obj) where any may be None.
         If both backend and t1/t2 are provided, t1/t2 override the backend's values.
     
     Typical values for superconducting qubits: T1 ~ 50-150 µs, T2 ~ 50-120 µs.
     """
     fake_backend = None
     noise_model = None
+    coupling_map_obj = None
     
     # Get fake backend if specified
     if backend is not None:
         fake_backend = get_fake_backend(backend)
         noise_model = NoiseModel.from_backend(fake_backend)
+        
+        # Handle coupling map
+        if coupling_map == "default":
+            # Use backend's native coupling map
+            coupling_map_obj = fake_backend.coupling_map
+        elif coupling_map == "all-to-all":
+            # Create all-to-all coupling for backend's num_qubits
+            num_qubits = fake_backend.num_qubits
+            coupling_map_obj = CouplingMap.from_full(num_qubits)
     
     # If t1/t2 provided, build custom noise model (overrides backend)
     if t1 is not None and t1 <= 0:
@@ -186,12 +201,12 @@ def build_noise_model(t1: float = None, t2: float = None,
         noise_model.add_all_qubit_quantum_error(error_1q, ['h', 'x', 'y', 'z', 'ry', 'rz', 'rx'])
         noise_model.add_all_qubit_quantum_error(error_2q, ['cx'])
     
-    return noise_model, fake_backend
+    return noise_model, fake_backend, coupling_map_obj
 
 
 def run_circuit(qc: QuantumCircuit, shots: int = 1024, 
                 t1: float = None, t2: float = None,
-                backend: str = None) -> dict:
+                backend: str = None, coupling_map: str = "default") -> dict:
     """
     Run a circuit on the Aer simulator and return results dict.
     
@@ -202,6 +217,7 @@ def run_circuit(qc: QuantumCircuit, shots: int = 1024,
         t2: T2 dephasing time in microseconds (dephasing). Must be <= 2*T1.
         backend: Name of fake backend (e.g., 'manila', 'jakarta'). Case-insensitive.
                  If provided with t1/t2, the t1/t2 values override backend noise.
+        coupling_map: "default" (backend's coupling) or "all-to-all" (full connectivity).
     
     Returns:
         Dict with keys:
@@ -212,11 +228,16 @@ def run_circuit(qc: QuantumCircuit, shots: int = 1024,
     Typical values for superconducting qubits: T1 ~ 50-150 µs, T2 ~ 50-120 µs.
     Longer is better.
     """
-    noise_model, fake_backend = build_noise_model(t1, t2, backend)
+    noise_model, fake_backend, coupling_map_obj = build_noise_model(t1, t2, backend, coupling_map)
     
     # If using a fake backend, transpile to its basis gates and coupling map
     if fake_backend is not None:
-        qc_transpiled = transpile(qc, backend=fake_backend)
+        # Only pass coupling_map if it's explicitly overriding the backend's default
+        if coupling_map == "all-to-all":
+            qc_transpiled = transpile(qc, backend=fake_backend, coupling_map=coupling_map_obj)
+        else:
+            # Use backend's native coupling map (don't pass coupling_map parameter)
+            qc_transpiled = transpile(qc, backend=fake_backend)
         simulator = AerSimulator.from_backend(fake_backend)
     else:
         qc_transpiled = qc
@@ -250,7 +271,7 @@ def run_circuit(qc: QuantumCircuit, shots: int = 1024,
 
 def run_estimator(circuit, observable, shots: int = 1024,
                   t1: float = None, t2: float = None,
-                  backend: str = None) -> float:
+                  backend: str = None, coupling_map: str = "default") -> float:
     """
     Estimate expectation value <ψ|O|ψ> using shots-based simulation.
     
@@ -261,14 +282,20 @@ def run_estimator(circuit, observable, shots: int = 1024,
         t1: T1 relaxation time in microseconds. None = no noise.
         t2: T2 dephasing time in microseconds. None = no noise.
         backend: Name of fake backend (e.g., 'manila'). Case-insensitive.
+        coupling_map: "default" (backend's coupling) or "all-to-all" (full connectivity).
     
     Returns:
         Expectation value as float.
     """
-    noise_model, fake_backend = build_noise_model(t1, t2, backend)
+    noise_model, fake_backend, coupling_map_obj = build_noise_model(t1, t2, backend, coupling_map)
     
     if fake_backend is not None:
-        circuit = transpile(circuit, backend=fake_backend)
+        # Only pass coupling_map if it's explicitly overriding the backend's default
+        if coupling_map == "all-to-all":
+            circuit = transpile(circuit, backend=fake_backend, coupling_map=coupling_map_obj)
+        else:
+            # Use backend's native coupling map (don't pass coupling_map parameter)
+            circuit = transpile(circuit, backend=fake_backend)
         simulator = AerSimulator.from_backend(fake_backend)
         if noise_model is not None:
             simulator = AerSimulator.from_backend(fake_backend, noise_model=noise_model)
@@ -284,7 +311,8 @@ def run_estimator(circuit, observable, shots: int = 1024,
 
 
 def run_circuit_display(circ: QuantumCircuit, t1: float = None, t2: float = None,
-    shots: int = 1024, display: bool = True, backend: str = None) -> dict:
+    shots: int = 1024, display: bool = True, backend: str = None, 
+    coupling_map: str = "default") -> dict:
     """Run a circuit, print JSON output, optionally display graphical views.
     
     Args:
@@ -298,7 +326,26 @@ def run_circuit_display(circ: QuantumCircuit, t1: float = None, t2: float = None
     Returns:
         Dict with counts, transpiled_stats, and backend_info.
     """
-    run_result = run_circuit(circ, t1=t1, t2=t2, shots=shots, backend=backend)
+    run_result = run_circuit(circ, t1=t1, t2=t2, shots=shots, backend=backend, coupling_map=coupling_map)
+    
+    # Prepare backend_info with compact formatting for coupling_map, gate_errors, and qubit_properties
+    backend_info = run_result["backend_info"]
+    if backend_info:
+        backend_info_compact = backend_info.copy()
+        if "coupling_map" in backend_info_compact:
+            backend_info_compact["coupling_map"] = json.dumps(backend_info_compact["coupling_map"], separators=(',', ':'))
+        if "gate_errors" in backend_info_compact:
+            backend_info_compact["gate_errors"] = json.dumps(backend_info_compact["gate_errors"], separators=(',', ':'))
+        if "qubit_properties" in backend_info_compact:
+            backend_info_compact["qubit_properties"] = json.dumps(backend_info_compact["qubit_properties"], separators=(',', ':'))
+    else:
+        backend_info_compact = None
+    
+    # Determine actual coupling map mode
+    if backend is None:
+        actual_coupling_mode = "all-to-all"
+    else:
+        actual_coupling_mode = coupling_map
     
     # Always print JSON output
     results = {
@@ -308,13 +355,20 @@ def run_circuit_display(circ: QuantumCircuit, t1: float = None, t2: float = None
             "gate_counts": dict(circ.count_ops())
         },
         "transpiled_stats": run_result["transpiled_stats"],
-        "run": {
+        "simulator_config": {
             "shots": shots,
-            "counts": run_result["counts"],
-            "t1_us": t1,
-            "t2_us": t2
+            "noise_model": {
+                "t1_us": t1,
+                "t2_us": t2,
+                "enabled": t1 is not None and t2 is not None
+            },
+            "backend": backend,
+            "coupling_map_mode": actual_coupling_mode
         },
-        "backend_info": json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None
+        "backend_info": backend_info_compact,
+        "results": {
+            "counts": run_result["counts"]
+        }
     }
     print(json.dumps(results, indent=2))
     

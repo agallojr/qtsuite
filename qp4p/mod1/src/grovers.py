@@ -17,6 +17,7 @@ from qiskit.primitives import StatevectorSampler
 from qiskit_algorithms import AmplificationProblem, Grover
 
 from qp4p_circuit import run_circuit, BASIS_GATES
+from qp4p_args import add_standard_quantum_args
 
 # *****************************************************************************
 
@@ -27,14 +28,9 @@ if __name__ == "__main__":
                         help="Target state(s) to search for (default: 10111)")
     parser.add_argument("--iterations", type=int, default=None,
                         help="Number of Grover iterations (default: computed optimally)")
-    parser.add_argument("--shots", type=int, default=1024,
-                        help="Number of shots for noisy simulation (default: 1024)")
-    parser.add_argument("--t1", type=float, default=None,
-                        help="T1 relaxation time in microseconds (default: no noise)")
-    parser.add_argument("--t2", type=float, default=None,
-                        help="T2 dephasing time in microseconds (default: no noise)")
-    parser.add_argument("--backend", type=str, default=None,
-                        help="Fake backend name (e.g., 'manila', 'jakarta')")
+    parser.add_argument("--n", type=int, default=3,
+                        help="Number of qubits (default: 3)")
+    add_standard_quantum_args(parser, include_shots=False)
     args = parser.parse_args()
 
     marked_states = args.targets
@@ -103,7 +99,8 @@ if __name__ == "__main__":
             # Noisy simulation: transpile to basis gates, add measurements, run with noise
             qc_transpiled = transpile(qc_iter, basis_gates=BASIS_GATES)
             qc_transpiled.measure_all()
-            run_result = run_circuit(qc_transpiled, shots=args.shots, t1=args.t1, t2=args.t2, backend=args.backend)
+            run_result = run_circuit(qc_transpiled, shots=args.shots, t1=args.t1, t2=args.t2, 
+                                   backend=args.backend, coupling_map=args.coupling_map)
             # Convert counts to probability distribution
             probs = np.zeros(num_states)
             for bitstring, count in run_result["counts"].items():

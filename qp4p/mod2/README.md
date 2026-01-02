@@ -1,6 +1,6 @@
 # Quantum Programming for Programmers (QP4P) - Module 2
 
-## Prerequisites
+## ▸ Module 2: Prerequisites
 
 - Attend QP4P Module 1, with its prerequisites and homework.
 
@@ -13,8 +13,11 @@
 - Read "Quantum CFD in 2025: An Industrial Perspective with Use Cases", Gallo & Alhawwary, distributed in this repository.
 
 
+## ▸ Module 2: Overview
 
-## Topics
+
+
+## ▸ Module 2: Topics
 
 
 - variational algorithms & optimization
@@ -50,10 +53,11 @@ Gain exposure to key algorithms in quantum computing: for searching unsorted dat
 
 
 
+## ▸ Module 2: Homework
 
-## Homework
+Read "Quantum CFD: Utility Benchmarking" by Gallo & Alhawwary et al., distributed in this repository. The proposal describes benchmarking approaches for quantum computing with application to CFD, studying a cube of configurations: code x case x backend. For example "HHL for 1D supersonic divergent nozzle on IBM Heron-class backend". Consider where you can, practically speaking, add results to the cube. Make a plan, consult the CFD SME, implement it, and document your findings in a short report (2-3 pages at most). If your results are used in our study, you may be listed as co-author on any resulting publication.
 
-We have demonstrated two cases using the HHL algorithm - one for the rectangular Hele-Shaw case and one for the 1D supersonic divergent nozzle flow. We also showed code for solving Ax=b using the Variational Quantum Linear Solver (VQLS).
+You may work in small teams.
 
-
+Consider that industrial quantum utility is not likely to be found for your chosen case at this time in the evolution of quantum computing. Focus instead on demonstrating feasibility, identifying bottlenecks, and establishing a foundation for future utility. Consider therefore how to encode your workflow(s) to maximize their potential for re-run and reuse.
 

@@ -12,11 +12,12 @@ import json
 import numpy as np
 from scipy.linalg import expm
 from qiskit import QuantumCircuit, transpile
-from qiskit.circuit.library import QFTGate
 from qiskit.quantum_info import Operator
+from qiskit.circuit.library import QFTGate
 
 from qp4p_circuit import run_circuit, BASIS_GATES
 from qp4p_chem import MOLECULES, build_hamiltonian
+from qp4p_args import add_noise_args, add_backend_args
 
 
 def build_qpe_circuit(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4, 
@@ -78,10 +79,10 @@ def build_qpe_circuit(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
     return qc
 
 
-def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
-            evolution_time: float = None, shots: int = 8192,
+def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4, 
+            evolution_time: float = None, shots: int = 1024,
             t1: float = None, t2: float = None,
-            backend: str = None) -> dict:
+            backend: str = None, coupling_map: str = "default") -> dict:
     """
     Run QPE to estimate ground state energy.
     
@@ -91,6 +92,7 @@ def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
         evolution_time: Time parameter for U = e^{-iHt}. If None, auto-computed.
         shots: Number of measurement shots
         t1, t2: Noise parameters
+        coupling_map: Coupling map for transpilation
     
     Returns:
         dict with QPE results
@@ -116,8 +118,9 @@ def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
     qc = build_qpe_circuit(H_shifted, num_ancilla, evolution_time)
     
     # Transpile to basis gates for Aer simulator
-    qc_transpiled = transpile(qc, basis_gates=BASIS_GATES, optimization_level=1)
-    run_result = run_circuit(qc_transpiled, shots=shots, t1=t1, t2=t2, backend=backend)
+    qc_transpiled = transpile(qc, basis_gates=BASIS_GATES)
+    run_result = run_circuit(qc_transpiled, shots=shots, t1=t1, t2=t2, backend=backend, 
+                        coupling_map=coupling_map)
     counts = run_result["counts"]
     backend_info = run_result["backend_info"]
     transpiled_stats = run_result["transpiled_stats"]
@@ -176,22 +179,18 @@ if __name__ == "__main__":
     parser.add_argument("--ancilla", type=int, default=6,
                         help="Number of ancilla qubits for phase precision (default: 6)")
     parser.add_argument("--shots", type=int, default=8192,
-                        help="Number of measurement shots (default: 8192)")
-    parser.add_argument("--t1", type=float, default=None,
-                        help="T1 relaxation time in µs (default: None = no noise)")
-    parser.add_argument("--t2", type=float, default=None,
-                        help="T2 dephasing time in µs (default: None = no noise)")
+                        help="Number of shots (default: 8192)")
+    add_noise_args(parser)
+    add_backend_args(parser)
     parser.add_argument("--bond-length", type=float, default=None,
                         help="Bond length in Angstroms (default: molecule-specific)")
     parser.add_argument("--evolution-time", type=float, default=None,
                         help="Evolution time parameter (default: auto-computed)")
-    parser.add_argument("--backend", type=str, default=None,
-                        help="Fake backend name (e.g., 'manila', 'jakarta')")
     args = parser.parse_args()
 
-    # Build Hamiltonian
+    # Build Hamiltonian (as matrix for QPE)
     hamiltonian, fci_energy, scf_energy, mol_info = \
-        build_hamiltonian(args.molecule, args.bond_length)
+        build_hamiltonian(args.molecule, args.bond_length, return_matrix=True)
     
     # Run QPE
     qpe_results = run_qpe(
@@ -201,7 +200,8 @@ if __name__ == "__main__":
         shots=args.shots,
         t1=args.t1,
         t2=args.t2,
-        backend=args.backend
+        backend=args.backend,
+        coupling_map=args.coupling_map
     )
     
     # Compute error metrics

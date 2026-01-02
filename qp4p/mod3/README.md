@@ -1,6 +1,6 @@
 # Quantum Programming for Programmers (QP4P) - Module 3
 
-## Prerequisites
+## ▸ Module 3: Prerequisites
 
 - Attend QP4P Module 2, with its prerequisites and homework.
 
@@ -16,7 +16,9 @@
 
 
 
-## Topics
+## ▸ Module 3: Overview
+
+## ▸ Module 3: Topics
 
 - error mitigation and correction
 - VQE
@@ -56,3 +58,6 @@ Experiment with modeling quantum systems using quantum computing techniques. Map
         - Read Mike & Ike.
         - Connect with Quantum IRAD team for next steps in exploring quantum computing for your application area.
 
+
+
+## ▸ Module 3: Homework

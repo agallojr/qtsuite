@@ -15,12 +15,6 @@ Phase handling:
 - Fidelity = |⟨x_classical|x_quantum⟩|² accounts for this by using absolute overlap
 - For real systems, this means the solution may have opposite sign but same direction
 
-Sample execution:
-    python src/ax_equals_b.py
-    python src/ax_equals_b.py --size 4 --seed 42
-    python src/ax_equals_b.py --size 8 --maxiter 500 --reps 4
-    python src/ax_equals_b.py --a "[[2,1],[1,2]]" --b "[1,0]"
-    python src/ax_equals_b.py --backend jakarta
 """
 
 import argparse
@@ -31,7 +25,7 @@ from scipy.optimize import minimize
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import real_amplitudes
 from qiskit.quantum_info import Statevector
-
+from qp4p_args import add_backend_args
 from qp4p_circuit import BASIS_GATES, get_fake_backend
 
 
@@ -232,10 +226,10 @@ if __name__ == "__main__":
         description="Solve Ax=b using VQLS (Variational Quantum Linear Solver)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python ax_equals_b.py
-  python ax_equals_b.py --size 4
-  python ax_equals_b.py --size 8 --maxiter 500
-  python ax_equals_b.py --a "[[2,1],[1,2]]" --b "[1,0]"
+  python ax_equals_b_vlqs.py
+  python ax_equals_b_vlqs.py --size 4
+  python ax_equals_b_vlqs.py --size 8 --maxiter 500
+  python ax_equals_b_vlqs.py --a "[[2,1],[1,2]]" --b "[1,0]"
 """)
     parser.add_argument("--size", type=int, default=None,
                         help="Generate random NxN system (overrides --a and --b)")
@@ -249,8 +243,7 @@ if __name__ == "__main__":
                         help="Max optimizer iterations (default: 200)")
     parser.add_argument("--reps", type=int, default=3,
                         help="Ansatz repetitions/depth (default: 3)")
-    parser.add_argument("--backend", type=str, default=None,
-                        help="Fake backend name for transpilation (e.g., 'manila', 'jakarta')")
+    add_backend_args(parser)
     args = parser.parse_args()
 
     # 1. Generate or parse the system

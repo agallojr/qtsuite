@@ -12,11 +12,11 @@ Sample execution:
     python src/phase_kickback.py --t1 50 --t2 40
 """
 
+import argparse
 import json
-
 from qiskit import QuantumCircuit
-
 from qp4p_circuit import run_circuit
+from qp4p_args import add_standard_quantum_args
 
 
 # *****************************************************************************
@@ -58,8 +58,8 @@ def run_example_kickback(t1: float = None, t2: float = None, backend: str = None
     qc_no_kick.measure_all()
     
     # Run simulations using helper
-    result_kick = run_circuit(qc_kick, t1=t1, t2=t2, backend=backend)
-    result_no_kick = run_circuit(qc_no_kick, t1=t1, t2=t2, backend=backend)
+    result_kick = run_circuit(qc_kick, t1=t1, t2=t2, backend=backend, coupling_map="default")
+    result_no_kick = run_circuit(qc_no_kick, t1=t1, t2=t2, backend=backend, coupling_map="default")
     
     # Build results with visualization data
     results = {
@@ -91,13 +91,7 @@ def run_example_kickback(t1: float = None, t2: float = None, backend: str = None
 # main
 
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser(description="Phase kickback example")
-    parser.add_argument("--t1", type=float, default=None,
-                        help="T1 relaxation time in µs (default: None = no noise)")
-    parser.add_argument("--t2", type=float, default=None,
-                        help="T2 dephasing time in µs (default: None = no noise)")
-    parser.add_argument("--backend", type=str, default=None,
-                        help="Fake backend name (e.g., 'manila', 'jakarta')")
+    add_standard_quantum_args(parser, include_shots=False)
     args = parser.parse_args()
     run_example_kickback(t1=args.t1, t2=args.t2, backend=args.backend)

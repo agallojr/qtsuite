@@ -7,6 +7,7 @@ https://pennylane.ai/blog/2024/01/top-20-molecules-for-quantum-computing
 
 import numpy as np
 from pyscf import gto, scf, fci, ao2mo
+from qiskit.quantum_info import SparsePauliOp, Operator
 
 # Predefined molecule geometries (atom string templates with {d} for bond length)
 MOLECULES = {
@@ -120,7 +121,8 @@ MOLECULES = {
 }
 
 
-def build_hamiltonian(molecule: str | dict = "H2", bond_length: float = None):
+def build_hamiltonian(molecule: str | dict = "H2", bond_length: float = None, 
+                      return_matrix: bool = False):
     """
     Build molecular Hamiltonian using PySCF FCI.
     
@@ -128,9 +130,10 @@ def build_hamiltonian(molecule: str | dict = "H2", bond_length: float = None):
         molecule: Either a molecule name (str) from MOLECULES, or a dict with keys:
                   atoms, basis, charge, spin, default_bond (optional), description (optional)
         bond_length: Bond length in Angstroms (None = use default)
+        return_matrix: If True, return numpy matrix; if False, return SparsePauliOp (default: False)
     
     Returns:
-        hamiltonian_matrix: Hamiltonian as numpy matrix
+        hamiltonian: Hamiltonian as SparsePauliOp (default) or numpy matrix (if return_matrix=True)
         fci_energy: Exact FCI ground state energy
         scf_energy: SCF reference energy
         mol_info: dict with molecule details
@@ -195,4 +198,10 @@ def build_hamiltonian(molecule: str | dict = "H2", bond_length: float = None):
         "num_qubits": num_qubits
     }
     
-    return hamiltonian_matrix, fci_energy, mf.energy_tot(), mol_info
+    # Return matrix or SparsePauliOp based on parameter
+    if return_matrix:
+        return hamiltonian_matrix, fci_energy, mf.energy_tot(), mol_info
+    else:
+        # Convert matrix to SparsePauliOp for VQE
+        hamil_qop = SparsePauliOp.from_operator(Operator(hamiltonian_matrix))
+        return hamil_qop, fci_energy, mf.energy_tot(), mol_info

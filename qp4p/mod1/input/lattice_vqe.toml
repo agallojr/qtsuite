@@ -1,0 +1,74 @@
+# Ising Model VQE Lattice Sweep
+
+[global]
+_output_dir = "~/qp4p"
+_group_postproc = "python -m postproc.lattice_viz"
+_final_postproc = "python -m qp4p_image_gallery"
+
+# Method comparison: qiskit (statevector) vs manual (shots-based)
+[method_study]
+rows = 4
+cols = 4
+method = ["qiskit", "manual"]
+ansatz = "TwoLocal"
+entanglement = "linear"
+reps = 2
+optimizer = "COBYLA"
+maxiter = 500
+shots = 8192
+
+# Ansatz comparison: TwoLocal vs EfficientSU2
+[ansatz_study]
+rows = 4
+cols = 4
+method = "qiskit"
+optimizer = "COBYLA"
+ansatz = ["TwoLocal", "EfficientSU2"]
+entanglement = "full"
+reps = 3
+maxiter = 1000
+
+# Entanglement comparison: linear vs full
+[entanglement_study]
+rows = 4
+cols = 4
+method = "qiskit"
+ansatz = "TwoLocal"
+entanglement = ["linear", "full"]
+reps = 2
+optimizer = "SLSQP"
+maxiter = 500
+
+# Optimizer comparison: COBYLA vs SLSQP vs SPSA
+[optimizer_study]
+rows = 4
+cols = 4
+method = "qiskit"
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+optimizer = ["COBYLA", "SLSQP", "SPSA"]
+maxiter = 1000
+
+# Reps study: effect of circuit depth
+[reps_study]
+rows = 4
+cols = 4
+method = "qiskit"
+ansatz = "TwoLocal"
+entanglement = "linear"
+reps = [2, 3, 4]
+optimizer = "COBYLA"
+maxiter = 500
+
+# Noise study with backend
+[noise_study]
+rows = 3
+cols = 3
+method = "qiskit"
+ansatz = "EfficientSU2"
+entanglement = "full"
+reps = 3
+optimizer = "COBYLA"
+maxiter = [200, 1000]
+backend = "manila"

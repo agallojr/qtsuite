@@ -13,61 +13,14 @@ import argparse
 import sys
 import json
 import numpy as np
-from qiskit.circuit.library import TwoLocal
 from qiskit.quantum_info import SparsePauliOp, Statevector, Pauli
-from qiskit_algorithms import VQE
-from qiskit_algorithms.utils import algorithm_globals
-from qiskit_algorithms.optimizers import COBYLA, SLSQP, SPSA
+from qiskit.circuit.library import TwoLocal, EfficientSU2
 from qiskit_nature.second_q.hamiltonians import IsingModel
 from qiskit_nature.second_q.hamiltonians.lattices import SquareLattice
 from qiskit_nature.second_q.hamiltonians.lattices.boundary_condition import BoundaryCondition
-from qiskit_aer import AerSimulator
-from qiskit.primitives import StatevectorEstimator
-from qiskit_aer.primitives import EstimatorV2
 
-from qp4p_circuit import build_noise_model
-
-
-def get_ansatz(num_qubits, ansatz_type='standard'):
-    """
-    Create an ansatz circuit for VQE.
-    
-    Args:
-        num_qubits: Number of qubits
-        ansatz_type: Type of ansatz ('simple' or 'standard')
-        
-    Returns:
-        Ansatz circuit
-    """
-    if ansatz_type == 'simple':
-        return TwoLocal(num_qubits, rotation_blocks='ry', entanglement_blocks='cz',
-                       entanglement='linear', reps=2)
-    elif ansatz_type == 'standard':
-        return TwoLocal(num_qubits, rotation_blocks='ry', entanglement_blocks='cz',
-                       entanglement='full', reps=3)
-    else:
-        raise ValueError(f"Unknown ansatz type: {ansatz_type}")
-
-
-def get_optimizer(optimizer_name, maxiter=100):
-    """
-    Create an optimizer for VQE.
-    
-    Args:
-        optimizer_name: Name of optimizer ('COBYLA', 'SLSQP', 'SPSA')
-        maxiter: Maximum iterations
-        
-    Returns:
-        Optimizer instance
-    """
-    if optimizer_name == 'COBYLA':
-        return COBYLA(maxiter=maxiter)
-    if optimizer_name == 'SLSQP':
-        return SLSQP(maxiter=maxiter)
-    elif optimizer_name == 'SPSA':
-        return SPSA(maxiter=maxiter)
-    else:
-        raise ValueError(f"Unknown optimizer: {optimizer_name}")
+from qp4p_vqe import run_vqe_optimization
+from qp4p_args import add_noise_args, add_backend_args
 
 
 def spinop_to_pauli(hamiltonian_op, num_qubits):
@@ -161,99 +114,82 @@ def run_vqe(args):
     output["hamiltonian"]["num_qubits"] = int(qubit_hamiltonian.num_qubits)
     output["hamiltonian"]["num_terms"] = int(len(qubit_hamiltonian))
     
-    ansatz = get_ansatz(num_qubits, args.ansatz)
+    # Create ansatz based on user choice
+    if args.ansatz == 'TwoLocal':
+        ansatz = TwoLocal(num_qubits, rotation_blocks='ry', entanglement_blocks='cx',
+                         entanglement=args.entanglement, reps=args.reps)
+    else:  # EfficientSU2
+        ansatz = EfficientSU2(num_qubits, entanglement=args.entanglement, reps=args.reps)
     
-    # Decompose the ansatz to basic gates for Aer compatibility
-    ansatz = ansatz.decompose().decompose()
+    # Validate method-specific arguments
+    if args.method == 'qiskit':
+        if args.shots is not None:
+            print("Warning: --shots is ignored for qiskit method (uses statevector)", file=sys.stderr)
+        if args.attempts != 5:
+            print("Warning: --attempts is ignored for qiskit method", file=sys.stderr)
+    elif args.method == 'manual':
+        if args.shots is None:
+            args.shots = 1024  # Default for manual method
+        if args.optimizer != 'SPSA':
+            print(f"Warning: manual method uses SPSA optimizer, ignoring --optimizer {args.optimizer}", file=sys.stderr)
     
-    optimizer = get_optimizer(args.optimizer, args.maxiter)
+    # Run VQE using unified helper
+    vqe_result = run_vqe_optimization(
+        hamiltonian=qubit_hamiltonian,
+        ansatz=ansatz,
+        optimizer=args.optimizer,
+        method=args.method,
+        maxiter=args.maxiter,
+        shots=args.shots,
+        t1=args.t1,
+        t2=args.t2,
+        backend=args.backend,
+        coupling_map=args.coupling_map,
+        seed=args.seed,
+        num_attempts=args.attempts
+    )
     
     output["vqe_config"] = {
         "ansatz_type": args.ansatz,
-        "ansatz_parameters": int(ansatz.num_parameters),
-        "ansatz_depth": int(ansatz.depth()),
+        "ansatz_parameters": int(vqe_result["ansatz_info"]["num_parameters"]),
+        "ansatz_depth": int(vqe_result["ansatz_info"]["depth"]),
         "optimizer": args.optimizer,
         "max_iterations": int(args.maxiter),
         "random_seed": int(args.seed),
-        "simulator": "EstimatorV2"
+        "method": vqe_result["method"]
     }
     
-    # Create estimator with optional noise model
-    noise_model = None
-    fake_backend = None
-    
-    # Use qp4p helper to build noise model from backend or T1/T2
-    if args.backend or (args.t1 > 0 and args.t2 > 0):
-        t1_us = args.t1 * 1e6 if args.t1 > 0 else None
-        t2_us = args.t2 * 1e6 if args.t2 > 0 else None
-        noise_model, fake_backend = build_noise_model(
-            t1=t1_us, 
-            t2=t2_us, 
-            backend=args.backend
-        )
-        
-        if args.backend:
-            output["vqe_config"]["noise"] = {
-                "backend": args.backend,
-                "source": "IBM fake backend",
-                "applied": True
-            }
-        else:
-            output["vqe_config"]["noise"] = {
-                "t1_seconds": args.t1,
-                "t2_seconds": args.t2,
-                "t1_microseconds": t1_us,
-                "t2_microseconds": t2_us,
-                "applied": True
-            }
-    
-    if fake_backend is not None:
-        # Use the fake backend directly with EstimatorV2
-        estimator = EstimatorV2(
-            options={
-                "default_precision": 0.01,
-                "backend_options": {
-                    "method": "statevector",
-                    "noise_model": noise_model,
-                }
-            }
-        )
-    elif noise_model is not None:
-        estimator = EstimatorV2(
-            options={
-                "default_precision": 0.01,
-                "backend_options": {
-                    "method": "statevector",
-                    "noise_model": noise_model,
-                }
-            }
-        )
-    else:
-        estimator = EstimatorV2(
-            options={
-                "default_precision": 0.01,
-            }
-        )
-    
-    energy_history = []
-    
-    def callback(eval_count, params, mean, std):
-        energy_history.append(float(mean))
-    
-    algorithm_globals.random_seed = args.seed
-    
-    vqe = VQE(estimator=estimator, ansatz=ansatz, optimizer=optimizer, callback=callback)
-    result = vqe.compute_minimum_eigenvalue(qubit_hamiltonian)
+    # Add noise info if applicable
+    if args.backend:
+        output["vqe_config"]["noise"] = {
+            "backend": args.backend,
+            "source": "IBM fake backend",
+            "applied": True
+        }
+    elif args.t1 is not None and args.t2 is not None:
+        output["vqe_config"]["noise"] = {
+            "t1_microseconds": args.t1,
+            "t2_microseconds": args.t2,
+            "applied": True
+        }
     
     output["vqe_results"] = {
-        "ground_state_energy": float(result.eigenvalue),
-        "optimizer_evaluations": int(result.cost_function_evals),
-        "energy_history": energy_history
+        "ground_state_energy": vqe_result["energy"],
+        "optimizer_evaluations": vqe_result["evaluations"],
+        "energy_history": vqe_result["energy_history"]
     }
     
-    optimal_circuit = ansatz.assign_parameters(result.optimal_parameters)
-    ground_state = Statevector(optimal_circuit)
-    probs = ground_state.probabilities()
+    # Extract ground state from VQE result
+    if vqe_result["optimal_params"]:
+        # Bind optimal parameters to ansatz
+        params = vqe_result["optimal_params"]
+        bound_circuit = ansatz.assign_parameters(params)
+        ground_state_vector = Statevector(bound_circuit)
+        probs = ground_state_vector.probabilities()
+    else:
+        # No optimal params, use uniform distribution
+        probs = np.ones(2**num_qubits) / (2**num_qubits)
+        ground_state_vector = None
     most_likely_state = np.argmax(probs)
     max_prob = probs[most_likely_state]
     
@@ -265,13 +201,13 @@ def run_vqe(args):
         "state_is_mixed": bool(max_prob < 0.5)
     }
     
-    if max_prob < 0.5:
+    if max_prob < 0.5 and ground_state_vector is not None:
         ground_state_spins = []
         for i in range(num_qubits):
             pauli_z = ['I'] * num_qubits
             pauli_z[num_qubits - 1 - i] = 'Z'
             z_op = Pauli(''.join(pauli_z))
-            expectation = ground_state.expectation_value(z_op).real
+            expectation = ground_state_vector.expectation_value(z_op).real
             ground_state_spins.append(1 if expectation > 0 else -1)
         
         ground_state_bitstring = ''.join(['0' if s == 1 else '1' for s in ground_state_spins])
@@ -296,7 +232,7 @@ def run_vqe(args):
         classical_energy = args.interaction * num_edges
     
     # Calculate fidelity metrics
-    vqe_energy = float(result.eigenvalue)
+    vqe_energy = vqe_result["energy"]
     energy_error = abs(vqe_energy - classical_energy)
     relative_error = abs(energy_error / classical_energy) if classical_energy != 0 else 0.0
     
@@ -329,7 +265,7 @@ def run_vqe(args):
     output["visualization_data"] = {
         "coupling_matrix": np.real(coupling_matrix).tolist(),
         "interaction_matrix": np.real(graph_array).tolist(),
-        "energy_history": energy_history,
+        "energy_history": vqe_result["energy_history"] if vqe_result["energy_history"] else [],
         "ground_state_spins": [int(s) for s in ground_state_spins]
     }
     
@@ -360,20 +296,29 @@ Examples:
         help='Uniform onsite potential (default: 0.0)')
     parser.add_argument('--boundary', choices=['open', 'periodic'], default='open',
         help='Boundary condition (default: open)')
-    parser.add_argument('--ansatz', choices=['simple', 'standard'], default='simple',
-        help='Ansatz type: simple (linear, reps=2) or standard (full, reps=3) (default: simple)')
+    parser.add_argument('--ansatz', type=str, default='TwoLocal',
+        choices=['TwoLocal', 'EfficientSU2'],
+        help='Ansatz type (default: TwoLocal)')
+    parser.add_argument('--entanglement', type=str, default='linear',
+        choices=['linear', 'full'],
+        help='Entanglement pattern (default: linear)')
+    parser.add_argument('--reps', type=int, default=2,
+        help='Number of ansatz repetitions (default: 2)')
+    parser.add_argument('--method', type=str, default='qiskit',
+        choices=['qiskit', 'manual'],
+        help='VQE method: qiskit (statevector) or manual (shots-based SPSA) (default: qiskit)')
     parser.add_argument('--optimizer', choices=['COBYLA', 'SLSQP', 'SPSA'], default='COBYLA',
         help='Optimizer to use (default: COBYLA)')
     parser.add_argument('--maxiter', type=int, default=100,
         help='Maximum optimizer iterations (default: 100)')
+    parser.add_argument('--shots', type=int, default=None,
+        help='Number of shots for manual method (default: None = 1024 for manual, ignored for qiskit)')
+    parser.add_argument('--attempts', type=int, default=5,
+        help='Number of optimization attempts for manual method (default: 5, ignored for qiskit)')
     parser.add_argument('--seed', type=int, default=42,
         help='Random seed (default: 42)')
-    parser.add_argument('--t1', type=float, default=0.0,
-        help='T1 relaxation time in seconds (default: 0.0, no noise)')
-    parser.add_argument('--t2', type=float, default=0.0,
-        help='T2 dephasing time in seconds (default: 0.0, no noise)')
-    parser.add_argument('--backend', type=str, default=None,
-        help='IBM backend name to use for noise model (e.g., manila, lagos)')
+    add_noise_args(parser)
+    add_backend_args(parser)
     
     args = parser.parse_args()
 

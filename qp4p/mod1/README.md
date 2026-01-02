@@ -1,32 +1,32 @@
 # Quantum Programming for Programmers (QP4P) - Module 1
 
-## Prerequisites
+## ▸ Module 1: Prerequisites
 
-- (Attend QP4P Module 0, optional) - Review the foundational concepts from Module 0 to ensure familiarity with quantum computing basics and Python programming.
+- Attend or otherwise consume QP4P Module 0. Review the foundational concepts from Module 0 to ensure familiarity with quantum computing basics and Python programming.
 
 - Intermediate-level Python programming skills, including familiarity with functions, classes, libraries such as numpy and matplotlib, and the use of virtual environments or other means to manage dependencies.
 
 - A working Python environment set to the libraries published for the class. We recommend the use of uv (https://docs.astral.sh/uv/). We have published a specification file (see ../pyproject.toml) that defines the required dependencies. Sample code will be provided to verify the environment. Please come to class with a working environment as we will not have time to troubleshoot environment issues during class.
+
+- Run the Module 0 examples. 
 
 - Read "Quantum Computation and Quantum Information" by Mike & Ike, Chapters 1-4, 7, or seek alternative introductory materials to build foundational understanding on topics such as: qubits, gates, quantum circuits, quantum states, superposition, entanglement, and measurement. Take a refresher on linear algebra concepts if needed, also complexity of algorithms and "big O" notation. Read a comparison of various qubit technologies to understand their trade-offs.
 
 - Watch "Error Mitigation Landscape | QDC 2025" by Eddins, https://youtu.be/ix52wx4_zek?si=cQOlxhhAGXXqhYCe
 
 
+## ▸ Module 1: Overview
+
+Module 1: Quantum Programming Fundamentals, in the NISQ Era
+
+How can I get started with quantum programming for my application domain? How do I make use of noisy quantum hardware effectively?
+
+Suitable for a research audience of programming practitioners, this module helps attendees understand the fundamental concepts of quantum computing including qubits, superposition, entanglement, quantum gates, and circuits. Participants will construct a personal quantum computing development environment, exercise the basic quantum computing workflow, and recognize performance limitations. In lieu of any further course attendance, they will be able to self-study online examples from their domain and use them in their development environment. A homework exercise will explore error accumulation in deep circuits, supported by office hours.
 
 
-Module 1: Quantum Computing Fundamentals
-How can I get started with quantum programming for my application domain?
-2 hours lecture & lab in-person / virtual; 1-2 hours post-work
-
-Suitable for a research audience of programming practitioners, this module helps attendees understand the fundamental concepts of quantum computing including qubits, superposition, entanglement, quantum gates, and circuits. Participants will construct a personal quantum computing development environment, exercise the basic quantum computing workflow, and recognize performance limitations. In lieu of any further course attendance, they will be able to self-study online examples from their domain and use them in their development environment. An in-class lab activity includes testing the scaling of a multi-body GHZ entanglement state, with a homework exercise to explore error accumulation in deep circuits, supported by office hours.
-
-
-## Topics
+## ▸ Module 1: Topics
 
 - look at mapping QAOA to hardware topologies Qiskit video
-
-
 - provenance
 - transpilation
 - variational algorithms, optimization
@@ -64,6 +64,7 @@ Suitable for a research audience of programming practitioners, this module helps
 - formulating as a Hamiltonian
 - max cut
 - QFT
+- classical vs. quantum data
 
 Bell vs GHZ
 \(|\Phi ^{+}\rangle =\frac{|00\rangle +|11\rangle }{\sqrt{2}}\): Both qubits are \(|0\rangle \) or both are \(|1\rangle \).\(|\Psi ^{+}\rangle =\frac{|01\rangle +|10\rangle }{\sqrt{2}}\): On
@@ -142,3 +143,13 @@ Bell vs GHZ
         - Write (or use from a lib) a <circuit, e.g. QPE> which takes <some variable problem size> as input and demonstrates how error accumulates with circuit depth on a simulator with a specific noise model. Graph input size vs. error rate.
         - Using a problem size of significance, understand the runtime cost as a function of shots.
         - Attend office hours to discuss any questions on pre-work, lecture, or lab.
+
+
+## ▸ Module 1: Homework
+
+
+
+
+
+
+

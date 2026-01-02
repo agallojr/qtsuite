@@ -1,0 +1,91 @@
+# Molecular Ground State VQE Sweep
+
+[global]
+_output_dir = "~/qp4p"
+
+# Method comparison: qiskit (statevector) vs manual (shots-based)
+[method_study]
+molecule = "H2"
+method = ["qiskit", "manual"]
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+optimizer = "COBYLA"
+maxiter = 500
+shots = 8192
+attempts = 5
+
+# Ansatz comparison: TwoLocal vs EfficientSU2
+[ansatz_study]
+molecule = "H2"
+method = "qiskit"
+optimizer = "COBYLA"
+ansatz = ["TwoLocal", "EfficientSU2"]
+entanglement = "full"
+reps = 2
+maxiter = 500
+
+# Entanglement comparison: linear vs full
+[entanglement_study]
+molecule = "H2"
+method = "qiskit"
+ansatz = "EfficientSU2"
+entanglement = ["linear", "full"]
+reps = 2
+optimizer = "SLSQP"
+maxiter = 500
+
+# Optimizer comparison: COBYLA vs SLSQP vs SPSA (qiskit method)
+[optimizer_study]
+molecule = "H2"
+method = "qiskit"
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+optimizer = ["COBYLA", "SLSQP", "SPSA"]
+maxiter = 500
+
+# Reps study: effect of circuit depth
+[reps_study]
+molecule = "H2"
+method = "qiskit"
+ansatz = "TwoLocal"
+entanglement = "linear"
+reps = [2, 3, 4]
+optimizer = "COBYLA"
+maxiter = 500
+
+# Molecule comparison
+[molecule_study]
+molecule = ["H2", "LiH", "HeH+"]
+method = "manual"
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+optimizer = "SPSA"
+maxiter = 500
+shots = 8192
+attempts = 5
+
+# Shots study: effect of sampling noise
+[shots_study]
+molecule = "H2"
+method = "manual"
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+optimizer = "SPSA"
+maxiter = 500
+shots = [1024, 4096, 8192, 16384]
+attempts = 5
+
+# Noise study with backend
+[noise_study]
+molecule = "H2"
+method = "qiskit"
+ansatz = "EfficientSU2"
+entanglement = "full"
+reps = 2
+optimizer = "COBYLA"
+maxiter = [200, 1000]
+backend = "manila"

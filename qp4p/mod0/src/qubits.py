@@ -8,37 +8,34 @@ a GHZ state to demonstrate entanglement, and more. You can pass in arguments to 
 or run on an idealized simulator.
 """
 
+import argparse
 import math
 from typing import List
-
 from qiskit import QuantumCircuit, QuantumRegister
-
 from qp4p_circuit import run_circuit_display
+from qp4p_args import add_standard_quantum_args
 
 
-def circuit_prep(n: int, state: bool = False, phase: float = 0.0) -> QuantumCircuit:
+def circiuit_state_prep(n: int, state: bool = False) -> QuantumCircuit:
     """
-    Make a circuit of n qubits, all in |0> or |1> state with optional phase. Measure all.
+    Make a circuit of n qubits, all in |0> or |1> state. Measure all.
     
     Args:
         n: Number of qubits
         state: False for |0>, True for |1>
-        phase: Phase angle in radians to apply (via Rz gate)
     """
     qc = QuantumCircuit(n)
     if state:
         for i in range(n):
             qc.x(i)
-    if phase != 0.0:
-        for i in range(n):
-            qc.rz(phase, i)
     qc.measure_all()
     return qc
  
 
 def circuit_hadamard_all(n: int) -> QuantumCircuit:
     """
-    Make a circuit of n qubits, all in Hadamard state. Measure all.
+    Make a circuit of n qubits, all in Hadamard state - full superposition. Measure all.
+    On measure each qubit has equal & independent probability of being 0 or 1.
     """
     qr = QuantumRegister(n)
     qc = QuantumCircuit(qr)
@@ -51,6 +48,10 @@ def circuit_ghz(n: int) -> QuantumCircuit:
     """
     Make a GHZ state circuit: (|00...0> + |11...1>) / sqrt(2). Measure all.
     Hadamard on first qubit, cascading CNOTs on all others.
+    The qubits are now entangled - measuring one determines all others.
+    Note: When visualizing individual Bloch spheres, each qubit appears as a dot at the
+    center (maximally mixed reduced state), which is characteristic of maximal entanglement.
+    The global state is pure, but each qubit individually has no definite state.
     """
     qc = QuantumCircuit(n)
     qc.h(0)
@@ -103,22 +104,21 @@ def circuit_amplitude_encoding(n: int, data_vector: List[float]) -> QuantumCircu
 # main
 
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser(
         description="Qubit examples",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python qubits.py prep 
-  python qubits.py prep -n 5 --state 1 --phase 1.57 --t1 50 --t2 30
+  python mod0/src/qubits.py prep 
+  python mod0/src/qubits.py prep -n 5 --state 1 --t1 50 --t2 30
 
-  python qubits.py hadamard
-  python qubits.py hadamard -n 4 --t1 50 --t2 30
+  python mod0/src/qubits.py hadamard
+  python mod0/src/qubits.py hadamard -n 4 --t1 50 --t2 30
 
-  python qubits.py ghz
-  python qubits.py ghz -n 5 --t1 50 --t2 30
+  python mod0/src/qubits.py ghz
+  python mod0/src/qubits.py ghz -n 5 --t1 50 --t2 30
 
-  python qubits.py amplitude --data 0.5 0.5 0.5 0.5
-  python qubits.py amplitude -n 3 --data 1 0 0 0  --t1 50 --t2 30
+  python mod0/src/qubits.py amplitude --data 0.5 0.5 0.5 0.5
+  python mod0/src/qubits.py amplitude -n 3 --data 1 0 0 0  --t1 50 --t2 30
 """)
     parser.add_argument("example", choices=["prep", "hadamard", "ghz", "amplitude"],
                         help="Which example to run")
@@ -126,12 +126,7 @@ if __name__ == "__main__":
                         help="Number of qubits (default: 3)")
     parser.add_argument("--state", type=int, choices=[0, 1], default=0,
                         help="Prepare qubits in |0> or |1> state (default: 0)")
-    parser.add_argument("--phase", type=float, default=0.0,
-                        help="Phase angle in radians to apply (default: 0)")
-    parser.add_argument("--t1", type=float, default=None,
-                        help="T1 relaxation time in µs (default: None = no noise)")
-    parser.add_argument("--t2", type=float, default=None,
-                        help="T2 dephasing time in µs (default: None = no noise)")
+    add_standard_quantum_args(parser, default_shots=1024)
     parser.add_argument("--data", type=float, nargs='+', default=[0.5, 0.5, 0.5, 0.5],
                         help="Data vector for amplitude encoding (default: [0.5, 0.5, 0.5, 0.5])")
     parser.add_argument("--no-display", action="store_true",
@@ -140,13 +135,15 @@ if __name__ == "__main__":
     display = not args.no_display
 
     if args.example == "prep":
-        run_circuit_display(circuit_prep(args.n, state=args.state, phase=args.phase),
-            t1=args.t1, t2=args.t2, display=display)
+        run_circuit_display(circiuit_state_prep(args.n, state=args.state),
+            t1=args.t1, t2=args.t2, backend=args.backend, coupling_map=args.coupling_map, display=display)
     elif args.example == "hadamard":
-        run_circuit_display(circuit_hadamard_all(args.n), t1=args.t1, t2=args.t2, display=display)
+        run_circuit_display(circuit_hadamard_all(args.n), t1=args.t1, t2=args.t2, backend=args.backend, 
+                          coupling_map=args.coupling_map, display=display)
     elif args.example == "ghz":
-        run_circuit_display(circuit_ghz(args.n), t1=args.t1, t2=args.t2, display=display)
+        run_circuit_display(circuit_ghz(args.n), t1=args.t1, t2=args.t2, backend=args.backend, 
+                          coupling_map=args.coupling_map, display=display)
     elif args.example == "amplitude":
         run_circuit_display(circuit_amplitude_encoding(args.n, args.data),
-            t1=args.t1, t2=args.t2, display=display)
+            t1=args.t1, t2=args.t2, backend=args.backend, coupling_map=args.coupling_map, display=display)
 

@@ -11,8 +11,8 @@ import argparse
 import json
 import numpy as np
 from qiskit import QuantumCircuit
-
 from qp4p_circuit import run_circuit, estimate_shots
+from qp4p_args import add_standard_quantum_args
 from qp4p_util import load_or_generate_image, validate_power_of_2
 
 # *****************************************************************************
@@ -129,12 +129,7 @@ if __name__ == "__main__":
                         help="Image size (must be power of 2, default: 4)")
     parser.add_argument("--shots", type=int, default=None,
                         help="Number of shots (default: auto-estimated)")
-    parser.add_argument("--t1", type=float, default=None,
-                        help="T1 relaxation time in microseconds (default: no noise)")
-    parser.add_argument("--t2", type=float, default=None,
-                        help="T2 dephasing time in microseconds (default: no noise)")
-    parser.add_argument("--backend", type=str, default=None,
-                        help="Fake backend name (e.g., 'manila', 'jakarta')")
+    add_standard_quantum_args(parser, include_shots=False)
     args = parser.parse_args()
 
     # 1. Load and preprocess the image
@@ -155,7 +150,8 @@ if __name__ == "__main__":
         shots = args.shots
 
     # 4. Run the circuit
-    run_result = run_circuit(qc, shots=shots, t1=args.t1, t2=args.t2, backend=args.backend)
+    run_result = run_circuit(qc, shots=shots, t1=args.t1, t2=args.t2, 
+                           backend=args.backend, coupling_map=args.coupling_map)
     counts = run_result["counts"]
 
     # 5. Reconstruct images
