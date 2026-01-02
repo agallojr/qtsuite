@@ -7,7 +7,7 @@ VQE ground state energy calculation using shots-based simulation.
 import argparse
 import json
 import sys
-from qiskit.circuit.library import TwoLocal, EfficientSU2
+from qiskit.circuit.library import TwoLocal, efficient_su2
 from qp4p_chem import MOLECULES, build_hamiltonian
 from qp4p_vqe import run_vqe_optimization
 from qp4p_args import add_noise_args, add_backend_args
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         ansatz = TwoLocal(num_qubits, rotation_blocks='ry', entanglement_blocks='cx',
                          entanglement=args.entanglement, reps=args.reps)
     else:  # EfficientSU2
-        ansatz = EfficientSU2(num_qubits, entanglement=args.entanglement, reps=args.reps)
+        ansatz = efficient_su2(num_qubits, entanglement=args.entanglement, reps=args.reps)
     
     # Validate method-specific arguments
     if args.method == 'qiskit':
@@ -113,7 +113,8 @@ if __name__ == "__main__":
         "run_config": {
             "shots": args.shots,
             "t1_us": args.t1,
-            "t2_us": args.t2
+            "t2_us": args.t2,
+            "backend": args.backend
         }
     }
     

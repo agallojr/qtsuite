@@ -4,7 +4,10 @@
 
 There is little reason to duplicate here the enormous amount of information available online regarding quantum computing. Of the players in the emergent quantum computing field, two stand out for their contributions to the educational landscape: superconducting qubit vendor IBM makers of Qiskit the leading quantum programming framework, and to a lesser extent the photonics company Xanadu, makers of the Pennylane SDK. The educational materials from both companies are an excellent starting point - online documents, tutorials, videos on YouTube, and complete sequential courses.
 
-Of particular note are the videos from John Watrous at IBM, especially the 18-part series "Understanding Quantum Computing", https://www.youtube.com/playlist?list=PLOFEBzvs-VvqKKMXX4vbi4EB1uaErFMSO
+As a basic introduction to utility, consider watching:
+https://quantum.cloud.ibm.com/learning/en/courses/quantum-computing-in-practice/applications-of-qc
+
+For the serious student, of particular note are the videos from John Watrous at IBM, especially the 18-part series "Understanding Quantum Computing", https://www.youtube.com/playlist?list=PLOFEBzvs-VvqKKMXX4vbi4EB1uaErFMSO
 
 Individual modules for this course each include their own reading list and prerequisites. The Mike & Ike book has suggested chapter ranges for each module. Additional papers from the arxiv are suggested for each module's main topics.
 
@@ -23,16 +26,18 @@ At the end of the course students will be able to:
 
 The course is organized into four modules:
 
-- Module 0: Introduction to Quantum Computing for Programmers
-- Module 1: Quantum Programming Fundamentals, in the NISQ Era
-- Module 2: Searching & Solving, w. CFD Use Cases
-- Module 3: Modeling Quantum Systems, w. MAT Use Cases
+- Module 0: Introduction to Quantum Computing for Programmers         (60 min)
+- Module 1: Quantum Programming Fundamentals, in the NISQ Era         (90 min)
+- Module 2: Searching & Solving, w. CFD Use Cases                     (90 min)
+- Module 3: Modeling Quantum Systems, w. MAT Use Cases                (90 min)
+
+Module 0 is an overview and sales pitch. Module 1 gives hands-on experience with quantum programming concepts and the full stack, understanding the limitations of quantum and classical hardware and software, and handling the error inherent in the NISQ era. Armed with this by Module 2 you're ready to try and understand the perhaps eventual timing of applying quantum computing to CFD solver use cases pertinent to the business. Module 3 puts you on a course to make nearer-term contributions to the business and teams in areas of active research relating to modeling quantum systems.
 
 There are prerequisites for the course, including basic programming knowledge and familiarity with linear algebra concepts. Each module has prerequisites. Some students may obtain credit for taking the course, which will be graded subjectively using code review and based on pass/fail. No work will be reviewed for credit 30 days after the end of the course.
 
-In Module 2 and 3, the homework will be intentionally speculative, potentially even at the edge of publishable, encouraging creative problem-solving and exploration of emerging quantum applications. Students may collaborate in small teams for these portions. 
+Note there may not be a canonical solution to the homework problems. The homework will be intentionally speculative, potentially even at the edge of publishable, encouraging creative problem-solving and exploration of emerging quantum applications. Thus, the homework deliverable for each module is not code but rather a short publication. Students may collaborate in small teams for these portions. Documented failure is encouraged as part of the learning process.
 
-Note there may not be a canonical solution to the homework problems. There will be scheduled office hours, however, we hope, and have as a goal that students will quickly surpass the teacher.
+There will be scheduled office hours, however, we hope, and have as a goal that students will quickly surpass the teacher.
 
 
 ## ▸ Module 0: Overview
@@ -51,12 +56,13 @@ Suitable for a general audience of programming practitioners, this overview modu
     - Why study quantum computing? performance & scale beyond classical, Hilbert space, FeMOCO
     - tl;dr: safely ignore for now, abstractions will arrive before production utility
     - Utility & advantage: for what, when?
-    - Current hardware landscape: hype & reality, types & connections, size, calibration
+    - Current hardware landscape: hype & reality, metrics, types & connections, size, DARPA
     - Noise & error mitigation: code examples allow studying impact of noise
     - Current software landscape: maturity, interop, abstract, circuit, IDEs (code: hello_world)
     - IBM & NVIDIA, Python & C++, estimation
 
 + Quantum basics 
+    - the mental shift, compared historical programming transitions
     - qubits vs. bits (code: state preparation & measurement, phase, magic, Bloch sphere)
     - superposition & Schrödinger's cat (code: Hadamard gate)
     - entanglement & the multi-body problem (code: Bell / GHZ states)
@@ -187,4 +193,6 @@ If you intend to take module 1, we suggest reviewing these questions to better p
 - Run a study of the lattice model, to understand the impact of size, ansatz, noise, optimizer, and iterations. Experiment with models of different legacy IBM machines (backends) and compare performance.
 
 - See also the documentation for Module 1: mod1/README.md for more pre-requisites.
+
+Module 0 post-work will not be graded, but is highly recommended for deeper understanding.
 

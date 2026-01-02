@@ -51,13 +51,23 @@ Gain exposure to key algorithms in quantum computing: for searching unsorted dat
     + Post-Work
 
 
++ Homework 2
+
++ Q & A
+
++ Office Hours
+
+
+
 
 
 ## ▸ Module 2: Homework
 
 Read "Quantum CFD: Utility Benchmarking" by Gallo & Alhawwary et al., distributed in this repository. The proposal describes benchmarking approaches for quantum computing with application to CFD, studying a cube of configurations: code x case x backend. For example "HHL for 1D supersonic divergent nozzle on IBM Heron-class backend". Consider where you can, practically speaking, add results to the cube. Make a plan, consult the CFD SME, implement it, and document your findings in a short report (2-3 pages at most). If your results are used in our study, you may be listed as co-author on any resulting publication.
 
-You may work in small teams.
+You may if desired work in small teams.
 
-Consider that industrial quantum utility is not likely to be found for your chosen case at this time in the evolution of quantum computing. Focus instead on demonstrating feasibility, identifying bottlenecks, and establishing a foundation for future utility. Consider therefore how to encode your workflow(s) to maximize their potential for re-run and reuse.
+Consider that industrial quantum utility is not likely to be found for your chosen case at this time in the evolution of quantum computing. Focus instead on demonstrating feasibility, identifying bottlenecks, and establishing a foundation for future utility. Consider therefore how to encode your workflow(s) to maximize their potential for re-run and reuse. Constructing fictitious backends is also permitted (e.g. an all-to-all machine with constant error rates on all qubits and connections).
+
+[Backup homework: Not a CFD person and find the above daunting? Then try the backup homework instead - implement the Oak Ridge "Winter Challenge 2025" - a simplified exercise to evaluate the HHL algorithm on the Hele-Shaw flow problem. See here: https://github.com/olcf/wciscc2025]
 

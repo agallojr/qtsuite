@@ -58,6 +58,11 @@ Experiment with modeling quantum systems using quantum computing techniques. Map
         - Read Mike & Ike.
         - Connect with Quantum IRAD team for next steps in exploring quantum computing for your application area.
 
++ Homework 3
+
++ Q & A
+
++ Office Hours
 
 
 ## ▸ Module 3: Homework

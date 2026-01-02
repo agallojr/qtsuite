@@ -155,7 +155,7 @@ def run_qpe(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4,
             "depth": qc.depth()
         },
         "transpiled_stats": transpiled_stats,
-        "backend_info": json.dumps(backend_info, separators=(',', ':')) if backend_info else None
+        "backend_info": backend_info
     }
     
     return result
