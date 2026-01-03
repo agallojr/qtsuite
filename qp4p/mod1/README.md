@@ -45,15 +45,15 @@ Module 1 will repeat some of the material and many of the examples from Module 0
     - Hybrid computing, co-scheduling
     - Kinds of simulators / emulators, cloud offerings
 
-+ Overview of quantum algorithms
-    - Algorithms as subroutines, emergent libraries
-    - Grover's search (code: grovers)
++ Overview of select quantum algorithms
     - Linear systems (code: ax=b): module 2 details CFD use cases
     - Variational Quantum Eigensolver (code: lattice): issues with NISQ variational algorithms
     - Quantum Phase Estimation (code: gs_qpe): module 3 details MAT use cases
     - other: Max Cut, QFT, AOA, QML, TSP
     - formulating as a Hamiltonian
     - Algorithm Zoo
+
++ <5 min break>
 
 + Noise & error mitigation
     - Types of noise: depolarizing, amplitude damping, phase damping

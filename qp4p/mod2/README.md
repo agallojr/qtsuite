@@ -15,50 +15,41 @@
 
 ## ▸ Module 2: Overview
 
+Module 2: Searching & Solving, w. CFD Use Cases 
+
+How can quantum be used for search, optimization, and solving linear systems as in CFD?
+
+Gain exposure to key algorithms in quantum computing: for searching unsorted data, optimization, and solving linear systems of equations, and understand their reported advantage relative to classical. Understand the current state of research in applying quantum algorithms to real-world problems in fluid flow with a report-out from a subject matter expert. Run examples of basic algorithms against toy CFD cases on a variety of noisy backends. Produce a new benchmark towards tracking industrial utility.
 
 
 ## ▸ Module 2: Topics
 
++ Q & A
 
-- variational algorithms & optimization
-- HHL and VQLS algorithms - HS & 1D nozzle flow
++ Grover's search (code: grovers)
+    - algorithm overview and implementation
+    - applications
+    - quantum subroutines & accelerators in a hybrid environment
 
-Module 2: Searching and Solving
-How can quantum be used for search, optimization, and solving linear systems as in CFD?
-2 hours lecture & lab in-person / virtual, 1-2 hours post-work
++ Variational Algorithms & Optimization
+    - QAOA overview and implementation
+    - VQLS overview and implementation
+    - as a NISQ era stop-gap, & issues with 
 
-Gain exposure to key algorithms in quantum computing: for searching unsorted data, prime factorization, optimization, and solving linear systems of equations, and understand their reported advantage relative to classical. Understand the current state of research in applying quantum algorithms to real-world problems in fluid flow with a report-out from a subject matter expert. Run a simple CFD problem in class using the HHL algorithm on a quantum simulator with and without a noise model. Continue your study by exercising the VQLS algorithm for solving the same system in a hybrid quantum-classical setting and attend office hours for support.
++ HHL [SME]
+    - algorithm overview
+    - Hele-Shaw case
+    - 1D supersonic divergent nozzle
 
++ <5 min break>
 
-
-
-+ Module 2: Searching and Solving
-    + Key takeaways / value proposition
-        - Gain exposure to key algorithms in quantum computing: for solving systems of equations, searching unsorted data, prime factorization, optimization.
-        - Understand the current state of research in applying quantum algorithms to real-world problems in fluid dynamics.
-        - Run a simple CFD problem using the HHL algorithm on a quantum simulator with and without a noise model.
-        - Continue your study by exercising VQLS algorithm for solving the same system.
-    + Pre-Work
-        - Read up on HHL, VQLS, QAOA, Shor's factorization and Grover's Search algorithm.
-    + Lecture
-        + Quantum algorithms overview
-            - Grover's Search
-            - Shor's Factorization
-            - Quantum Approximate Optimization Algorithm (QAOA)
-            - HHL Algorithm for Linear Systems
-            - Variational Quantum Linear Solver (VQLS)
-    + Lab
-    + Post-Work
-
++ Current CFD Research & Future Work [SME]
 
 + Homework 2
 
 + Q & A
 
 + Office Hours
-
-
-
 
 
 ## ▸ Module 2: Homework
