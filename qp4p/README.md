@@ -10,7 +10,7 @@
 - **[Module 3: Modeling Quantum Systems, w. MAT Use Cases](mod3/README.md)**
 
 
-## Course Narrative
+## ▸ Course Narrative
 
 This course is designed for scientific domain experts who are also at least intermediate programmers who want to understand and apply quantum computing to emerging use cases. It assumes no prior domain experience, but does assume familiarity with programming concepts and experience with a high-level programming language such as Python.
 
