@@ -18,9 +18,9 @@ The title of this course is "Quantum Programming for Programmers". This course i
 
 At the end of the course students will be able to:
 
-- Explain the basics of quantum computing to peers, the value proposition (if any) to managers.
+- Explain the basics of quantum computing to peers, the value proposition (if any).
 - Identify potential quantum utility and/or advantages and limitations for practical problems in their domain. Be able to discern the timing of that utility relative to vendor roadmaps.
-- Use quantum programming frameworks to implement basic quantum algorithms and analyze results.
+- Use quantum programming frameworks to implement quantum algorithms and analyze results.
 - Understand the impact of noise and error mitigation in quantum computations and the limitations of current hardware.
 - Be able to form research collaborations internally and externally to further explore quantum applications.
 
