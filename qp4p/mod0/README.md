@@ -4,10 +4,13 @@
 
 There is little reason to duplicate here the enormous amount of information available online regarding quantum computing. Of the players in the emergent quantum computing field, two stand out for their contributions to the educational landscape: superconducting qubit vendor IBM makers of Qiskit the leading quantum programming framework, and to a lesser extent the photonics company Xanadu, makers of the Pennylane SDK. The educational materials from both companies are an excellent starting point - online documents, tutorials, videos on YouTube, and complete sequential courses.
 
-As a basic introduction to utility, consider watching:
+As a basic introduction to quantum utility, consider watching:
 https://quantum.cloud.ibm.com/learning/en/courses/quantum-computing-in-practice/applications-of-qc
 
 For the serious student, of particular note are the videos from John Watrous at IBM, especially the 18-part series "Understanding Quantum Computing", https://www.youtube.com/playlist?list=PLOFEBzvs-VvqKKMXX4vbi4EB1uaErFMSO
+
+If like me you need a linear algebra refresher, this is accessible treatment - see especially chapter 14 on eigenstuffs:
+https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
 
 Individual modules for this course each include their own reading list and prerequisites. The Mike & Ike book has suggested chapter ranges for each module. Additional papers from the arxiv are suggested for each module's main topics.
 
