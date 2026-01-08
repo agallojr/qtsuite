@@ -121,10 +121,10 @@ MOLECULES = {
 }
 
 
-def build_hamiltonian(molecule: str | dict = "H2", bond_length: float = None, 
-                      return_matrix: bool = False):
+def build_molecular_hamiltonian_fci(molecule: str | dict = "H2", bond_length: float = None, 
+                                    return_matrix: bool = False):
     """
-    Build molecular Hamiltonian using PySCF FCI.
+    Build molecular Hamiltonian using PySCF FCI (Full Configuration Interaction).
     
     Args:
         molecule: Either a molecule name (str) from MOLECULES, or a dict with keys:
@@ -205,3 +205,216 @@ def build_hamiltonian(molecule: str | dict = "H2", bond_length: float = None,
         # Convert matrix to SparsePauliOp for VQE
         hamil_qop = SparsePauliOp.from_operator(Operator(hamiltonian_matrix))
         return hamil_qop, fci_energy, mf.energy_tot(), mol_info
+
+
+def build_wannier_hamiltonian(jid: str, k_point: list = None, return_matrix: bool = False):
+    """
+    Build Wannier tight-binding Hamiltonian from JARVIS database.
+    
+    Args:
+        jid: JARVIS material ID (e.g., "JVASP-816" for Al, "JVASP-51338" for FePbW2)
+        k_point: k-point coordinates [kx, ky, kz] (default: [0.0, 0.0, 0.0] - Gamma point)
+        return_matrix: If True, return numpy matrix; if False, return SparsePauliOp (default: False)
+    
+    Returns:
+        hamiltonian: Hamiltonian as SparsePauliOp (default) or numpy matrix (if return_matrix=True)
+        exact_ground_energy: Exact ground state energy from diagonalization (eV)
+        wannier_info: dict with material details
+    
+    Raises:
+        ImportError: If jarvis-tools is not installed
+        ValueError: If material not found in JARVIS database
+    """
+    try:
+        from jarvis.db.figshare import get_wann_electron, get_hk_tb
+    except ImportError as exc:
+        raise ImportError(
+            "jarvis-tools is required for Wannier Hamiltonians. "
+            "Install with: pip install jarvis-tools"
+        ) from exc
+    
+    if k_point is None:
+        k_point = [0.0, 0.0, 0.0]
+    
+    # Get Wannier data from JARVIS
+    try:
+        w, ef, atoms = get_wann_electron(jid=jid)
+    except Exception as e:
+        raise ValueError(f"Failed to retrieve material {jid} from JARVIS: {e}") from e
+    
+    # Compute tight-binding Hamiltonian at k-point
+    hk = get_hk_tb(w=w, k=k_point)
+    
+    # Pad to power of 2 if needed
+    n = hk.shape[0]
+    is_power_of_2 = (n & (n-1)) == 0 and n != 0
+    
+    if not is_power_of_2:
+        next_power_of_2 = 1 << (n - 1).bit_length()
+        padded_hk = np.zeros((next_power_of_2, next_power_of_2), dtype=hk.dtype)
+        padded_hk[:n, :n] = hk
+        # Add large energy to padded states to keep them inaccessible
+        for i in range(n, next_power_of_2):
+            padded_hk[i, i] = 1e6
+        hk = padded_hk
+    
+    # Get exact ground state energy
+    eigenvalues = np.linalg.eigvalsh(hk)
+    exact_ground_energy = float(eigenvalues[0])
+    
+    num_qubits = int(np.log2(hk.shape[0]))
+    
+    wannier_info = {
+        "jid": jid,
+        "k_point": k_point,
+        "fermi_energy_ev": float(ef),
+        "num_atoms": len(atoms.cart_coords),
+        "formula": atoms.composition.reduced_formula,
+        "num_qubits": num_qubits,
+        "original_dimension": n,
+        "padded": not is_power_of_2
+    }
+    
+    # Return matrix or SparsePauliOp based on parameter
+    if return_matrix:
+        return hk, exact_ground_energy, wannier_info
+    else:
+        # Convert matrix to SparsePauliOp
+        hamil_qop = SparsePauliOp.from_operator(Operator(hk))
+        return hamil_qop, exact_ground_energy, wannier_info
+
+
+def build_siam_hamiltonian(num_orbs: int, hopping: float = 1.0, onsite: float = 5.0,
+                           hybridization: float = 1.0, chemical_potential: float = -2.5,
+                           momentum_basis: bool = True):
+    """
+    Build Single Impurity Anderson Model (SIAM) Hamiltonian.
+    
+    The SIAM describes a magnetic impurity coupled to a bath of conduction electrons.
+    Fundamental model for Kondo physics, quantum dots, and heavy fermion systems.
+    
+    Args:
+        num_orbs: Number of spatial orbitals
+        hopping: Hopping parameter t between bath sites (default: 1.0)
+        onsite: Onsite Coulomb interaction U on impurity (default: 5.0)
+        hybridization: Impurity-bath coupling V (default: 1.0)
+        chemical_potential: Chemical potential μ (default: -2.5)
+        momentum_basis: If True, return in momentum basis; if False, position basis
+    
+    Returns:
+        h1e: One-electron integrals (num_orbs × num_orbs)
+        h2e: Two-electron integrals (num_orbs^4 array)
+        exact_energy: Exact FCI ground state energy
+        siam_info: dict with model parameters
+    """
+    # Place impurity on first site (position basis)
+    impurity_orb = 0
+    
+    # One-body matrix elements in position basis
+    h1e = np.zeros((num_orbs, num_orbs))
+    # Hopping between bath sites
+    np.fill_diagonal(h1e[:, 1:], -hopping)
+    np.fill_diagonal(h1e[1:, :], -hopping)
+    # Hybridization between impurity and first bath site
+    h1e[impurity_orb, impurity_orb + 1] = -hybridization
+    h1e[impurity_orb + 1, impurity_orb] = -hybridization
+    # Chemical potential on impurity
+    h1e[impurity_orb, impurity_orb] = chemical_potential
+    
+    # Two-body matrix elements in position basis
+    h2e = np.zeros((num_orbs, num_orbs, num_orbs, num_orbs))
+    # Onsite interaction on impurity only
+    h2e[impurity_orb, impurity_orb, impurity_orb, impurity_orb] = onsite
+    
+    # Transform to momentum basis if requested
+    if momentum_basis:
+        h1e, h2e = _siam_to_momentum_basis(h1e, h2e, num_orbs)
+    
+    # Compute exact energy by direct diagonalization
+    # For SIAM, we can build the full Hamiltonian matrix and diagonalize
+    # This is more reliable than trying to use PySCF with a dummy molecule
+    from pyscf import fci as pyscf_fci
+    
+    # Build full Hamiltonian matrix in Fock space
+    # Assume half-filling for electron count
+    nelec = (num_orbs // 2, num_orbs // 2)
+    
+    # Use FCI to build Hamiltonian in the appropriate Fock space
+    # Create FCI solver without molecular object
+    norb = num_orbs
+    na, nb = nelec
+    
+    # Build Hamiltonian matrix directly
+    h1e_a = h1e
+    h1e_b = h1e
+    h2e_aa = h2e
+    h2e_ab = h2e
+    h2e_bb = h2e
+    
+    # Get FCI Hamiltonian dimension and build matrix
+    from pyscf.fci import cistring
+    na_states = cistring.num_strings(norb, na)
+    nb_states = cistring.num_strings(norb, nb)
+    dim = na_states * nb_states
+    
+    # Use direct_spin1 to build and diagonalize
+    from pyscf.fci import direct_spin1
+    h_fci = direct_spin1.pspace(h1e_a, h2e_aa, norb, nelec, np=dim)[1]
+    
+    # Diagonalize to get exact ground state energy
+    eigenvalues = np.linalg.eigvalsh(h_fci)
+    exact_energy = float(eigenvalues[0])
+    
+    siam_info = {
+        "model": "SIAM",
+        "num_orbs": num_orbs,
+        "num_qubits": 2 * num_orbs,
+        "hopping": hopping,
+        "onsite": onsite,
+        "hybridization": hybridization,
+        "chemical_potential": chemical_potential,
+        "basis": "momentum" if momentum_basis else "position"
+    }
+    
+    return h1e, h2e, exact_energy, siam_info
+
+
+def _siam_to_momentum_basis(h1e: np.ndarray, h2e: np.ndarray, num_orbs: int):
+    """Transform SIAM Hamiltonian from position to momentum basis."""
+    n_bath = num_orbs - 1
+    
+    # Diagonalize bath hopping matrix
+    hopping_matrix = np.zeros((n_bath, n_bath))
+    np.fill_diagonal(hopping_matrix[:, 1:], -1)
+    np.fill_diagonal(hopping_matrix[1:, :], -1)
+    _, vecs = np.linalg.eigh(hopping_matrix)
+    
+    # Canonicalize eigenvector signs for reproducibility
+    signs = np.sign(vecs[0, :])
+    zero_mask = np.isclose(signs, 0.0)
+    if np.any(zero_mask):
+        js = np.where(zero_mask)[0]
+        i_max = np.argmax(np.abs(vecs[:, js]), axis=0)
+        signs[js] = np.sign(vecs[i_max, js])
+    signs[signs == 0] = 1.0
+    vecs = vecs * signs
+    
+    # Build full orbital rotation (include impurity)
+    orbital_rotation = np.zeros((num_orbs, num_orbs))
+    orbital_rotation[0, 0] = 1  # Impurity on first site
+    orbital_rotation[1:, 1:] = vecs
+    
+    # Move impurity to center
+    new_index = n_bath // 2
+    perm = np.r_[1:(new_index + 1), 0, (new_index + 1):num_orbs]
+    orbital_rotation = orbital_rotation[:, perm]
+    
+    # Rotate Hamiltonian
+    h1e_momentum = np.einsum('ab,Aa,Bb->AB', h1e, orbital_rotation, 
+                             orbital_rotation.conj(), optimize='greedy')
+    h2e_momentum = np.einsum('abcd,Aa,Bb,Cc,Dd->ABCD', h2e, 
+                             orbital_rotation, orbital_rotation.conj(),
+                             orbital_rotation, orbital_rotation.conj(), 
+                             optimize='greedy')
+    
+    return h1e_momentum, h2e_momentum

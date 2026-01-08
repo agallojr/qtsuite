@@ -14,7 +14,7 @@
 
 This course is designed for scientific domain experts who are also at least intermediate programmers who want to understand and apply quantum computing to emerging use cases. It assumes no prior domain experience, but does assume familiarity with programming concepts and experience with a high-level programming language such as Python.
 
-Module 0 is an overview and sales pitch for the course. Module 1 covers quantum programming fundamentals and the NISQ era. Module 2 covers searching and solving with CFD use cases. Module 3 covers modeling quantum systems with material science use cases.
+Module 0 is a general overview for the course for a casual scientific audience. For registered students, Module 1 covers quantum programming fundamentals and the NISQ era. Module 2 covers searching and solving with CFD use cases. Module 3 covers modeling quantum systems with material science use cases.
 
 Being for programmers, our presentation will be code-forward. We'll see code examples of quantum phenomena and algorithms and note where they are conceptually similar or different from their classical counterparts. We will directly compare algorithms for computing states of molecular models, for solving Ax=b problems, for understanding the impacts and limits of sampling, of noise and the mitigation thereof. We will use the full stack informed by details of specific quantum backends, and experience the challenges of hybrid classical-quantum workflows and the importance of data provenance for repeatability.
 

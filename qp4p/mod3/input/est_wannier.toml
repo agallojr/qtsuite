@@ -1,0 +1,93 @@
+# Wannier Hamiltonian Resource Estimation Sweep
+# Run with: python -m qp4p_sweeper mod3/src/est_wannier.py mod3/input/est_wannier.toml
+
+[global]
+_output_dir = "~/qp4p"
+
+# Aluminum at Gamma point - baseline
+[al_gamma]
+jid = "JVASP-816"
+kx = 0.0
+ky = 0.0
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = 5000
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+
+# Aluminum k-point study
+[al_kpoint_study]
+jid = "JVASP-816"
+kx = [0.0, 0.25, 0.5]
+ky = 0.5
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = 5000
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+
+# Trotter steps convergence study
+[al_trotter_study]
+jid = "JVASP-816"
+kx = 0.0
+ky = 0.0
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = [100, 500, 1000, 5000, 10000]
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+
+# Ansatz comparison
+[al_ansatz_study]
+jid = "JVASP-816"
+kx = 0.0
+ky = 0.0
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = 5000
+ansatz = ["TwoLocal", "EfficientSU2"]
+entanglement = "full"
+reps = 2
+
+# Entanglement and reps study
+[al_entanglement_study]
+jid = "JVASP-816"
+kx = 0.0
+ky = 0.0
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = 5000
+ansatz = "EfficientSU2"
+entanglement = ["linear", "full"]
+reps = [2, 3, 4]
+
+# Backend comparison (transpilation differences)
+[al_backend_study]
+jid = "JVASP-816"
+kx = 0.0
+ky = 0.0
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = 1000
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+backend = ["manila", "jakarta", "cairo"]
+
+# Noise impact on circuit metrics
+[al_noise_study]
+jid = "JVASP-816"
+kx = 0.0
+ky = 0.0
+kz = 0.0
+evolution-time = 1.0
+trotter-steps = 1000
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+backend = "manila"
+t1 = [50, 100]
+t2 = [30, 80]

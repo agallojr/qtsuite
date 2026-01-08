@@ -1,0 +1,40 @@
+# HHL Algorithm with Qiskit Sweep
+# Run with: python -m qp4p_sweeper mod2/src/ax_equals_b_hhl.py mod2/input/ax_equals_b_hhl.toml
+
+[global]
+_output_dir = "~/qp4p"
+shots = 1024
+
+# Simple 2x2 Hermitian system
+[simple_2x2]
+matrix = "[[1,0.5],[0.5,1]]"
+vector = "[1,0]"
+
+# Diagonal dominant
+[diagonal_2x2]
+matrix = "[[2,0.5],[0.5,2]]"
+vector = "[1,1]"
+
+# Different vector
+[simple_2x2_alt]
+matrix = "[[1,0.5],[0.5,1]]"
+vector = "[0,1]"
+
+# Shots convergence study
+[shots_study]
+matrix = "[[1,0.5],[0.5,1]]"
+vector = "[1,0]"
+shots = [512, 1024, 2048, 4096]
+
+# Backend noise study
+[backend_study]
+matrix = "[[1,0.5],[0.5,1]]"
+vector = "[1,0]"
+backend = ["manila", "jakarta"]
+
+# Custom noise study
+[noise_study]
+matrix = "[[1,0.5],[0.5,1]]"
+vector = "[1,0]"
+t1 = [50, 100]
+t2 = [30, 80]

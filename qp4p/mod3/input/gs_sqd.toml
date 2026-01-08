@@ -1,0 +1,85 @@
+# Sample-based Quantum Diagonalization (SQD) Sweep
+# Run with: python -m qp4p_sweeper mod3/src/gs_sqd.py mod3/input/gs_sqd.toml
+
+[global]
+_output_dir = "~/qp4p"
+molecule = "H2"
+spin-sq = 0
+open-shell = false
+seed = 42
+
+# Baseline - synthetic counts
+[h2_synthetic]
+iterations = 5
+batches = 1
+samples = 500
+shots = 10000
+synthetic = true
+
+# Real circuit - no noise
+[h2_circuit_clean]
+iterations = 5
+batches = 1
+samples = 500
+shots = 10000
+synthetic = false
+
+# Iterations convergence study
+[h2_iterations_study]
+iterations = [3, 5, 7, 10]
+batches = 1
+samples = 500
+shots = 10000
+synthetic = false
+
+# Samples per batch study
+[h2_samples_study]
+iterations = 5
+batches = 1
+samples = [100, 300, 500, 1000]
+shots = 10000
+synthetic = false
+
+# Batches study
+[h2_batches_study]
+iterations = 5
+batches = [1, 3, 5]
+samples = 500
+shots = 10000
+synthetic = false
+
+# Shots convergence
+[h2_shots_study]
+iterations = 5
+batches = 1
+samples = 500
+shots = [1000, 5000, 10000, 20000]
+synthetic = false
+
+# Molecule comparison
+[molecule_study]
+molecule = ["H2", "LiH", "HeH+"]
+iterations = 5
+batches = 1
+samples = 500
+shots = 10000
+synthetic = false
+
+# Backend noise impact
+[h2_backend_study]
+iterations = 5
+batches = 1
+samples = 500
+shots = 10000
+synthetic = false
+backend = ["manila", "jakarta"]
+
+# Custom noise study
+[h2_noise_study]
+iterations = 5
+batches = 1
+samples = 500
+shots = 10000
+synthetic = false
+t1 = [50, 100]
+t2 = [30, 80]

@@ -8,7 +8,7 @@ import argparse
 import json
 import sys
 from qiskit.circuit.library import TwoLocal, efficient_su2
-from qp4p_chem import MOLECULES, build_hamiltonian
+from qp4p_chem import MOLECULES, build_molecular_hamiltonian_fci
 from qp4p_vqe import run_vqe_optimization
 from qp4p_args import add_noise_args, add_backend_args
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Build Hamiltonian
-    hamil_qop, fci_energy, scf_energy, mol_info = build_hamiltonian(args.molecule, args.bond_length)
+    hamil_qop, fci_energy, scf_energy, mol_info = build_molecular_hamiltonian_fci(args.molecule, args.bond_length)
     
     # Create ansatz based on user choice
     num_qubits = hamil_qop.num_qubits

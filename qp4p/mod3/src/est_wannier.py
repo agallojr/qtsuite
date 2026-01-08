@@ -1,0 +1,153 @@
+"""
+Resource estimation for Wannier Hamiltonians from JARVIS database.
+
+Estimates quantum resource requirements (qubits, circuit depth, gate count, fidelity)
+for simulating solid-state materials using Trotterization and VQE ansatz circuits.
+"""
+
+#pylint: disable=protected-access, invalid-name
+
+import argparse
+import json
+import sys
+import numpy as np
+from qiskit import QuantumCircuit, QuantumRegister, transpile
+from qiskit.synthesis import SuzukiTrotter
+from qiskit.circuit.library import PauliEvolutionGate, TwoLocal, efficient_su2
+from qiskit.quantum_info import Operator
+from qp4p_chem import build_wannier_hamiltonian
+from qp4p_circuit import build_noise_model, BASIS_GATES
+from qp4p_args import add_noise_args, add_backend_args
+
+
+# *****************************************************************************
+# main
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Resource estimation for Wannier Hamiltonians",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  python est_wannier.py --jid JVASP-816
+  python est_wannier.py --jid JVASP-816 --kx 0.5 --ky 0.5 --kz 0.0
+  python est_wannier.py --jid JVASP-816 --trotter-steps 1000
+  python est_wannier.py --jid JVASP-51338 --backend manila --t1 50 --t2 30
+""")
+    parser.add_argument("--jid", type=str, default="JVASP-816",
+                        help="JARVIS material ID (default: JVASP-816 for Al)")
+    parser.add_argument("--kx", type=float, default=0.0,
+                        help="k-point x coordinate (default: 0.0)")
+    parser.add_argument("--ky", type=float, default=0.0,
+                        help="k-point y coordinate (default: 0.0)")
+    parser.add_argument("--kz", type=float, default=0.0,
+                        help="k-point z coordinate (default: 0.0)")
+    parser.add_argument("--evolution-time", type=float, default=1.0,
+                        help="Evolution time parameter for Trotterization (default: 1.0)")
+    parser.add_argument("--trotter-steps", type=int, default=5000,
+                        help="Number of Trotter steps (default: 5000)")
+    add_noise_args(parser)
+    add_backend_args(parser)
+    parser.add_argument("--ansatz", type=str, default="EfficientSU2",
+                        choices=["TwoLocal", "EfficientSU2"],
+                        help="Ansatz type (default: EfficientSU2)")
+    parser.add_argument("--entanglement", type=str, default="linear",
+                        choices=["linear", "full"],
+                        help="Entanglement pattern (default: linear)")
+    parser.add_argument("--reps", type=int, default=2,
+                        help="Number of ansatz repetitions (default: 2)")
+    args = parser.parse_args()
+
+    # Build Wannier Hamiltonian
+    k_point = [args.kx, args.ky, args.kz]
+    try:
+        hamil_qop, exact_ground_energy, wannier_info = build_wannier_hamiltonian(
+            args.jid, k_point=k_point)
+    except ImportError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print("\nTo use Wannier Hamiltonians, install jarvis-tools:", file=sys.stderr)
+        print("  pip install jarvis-tools", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Get Hamiltonian matrix for Trotterization
+    hamil_matrix, _, _ = build_wannier_hamiltonian(args.jid, k_point=k_point, return_matrix=True)
+    num_qubits = hamil_qop.num_qubits
+    
+    # Build noise model if specified
+    noise_model, fake_backend, _ = build_noise_model(args.t1, args.t2, args.backend, args.coupling_map)
+    
+    # === TROTTERIZATION ESTIMATION ===
+    # Create time evolution circuit using Trotterization
+    qr = QuantumRegister(num_qubits)
+    trotter_circuit = QuantumCircuit(qr)
+    
+    # Use Qiskit's PauliEvolutionGate for Trotterization  
+    evolution_gate = PauliEvolutionGate(
+        hamil_qop, 
+        time=args.evolution_time,
+        synthesis=SuzukiTrotter(order=1, reps=args.trotter_steps)
+    )
+    trotter_circuit.append(evolution_gate, qr)
+    
+    # Decompose and transpile
+    trotter_decomposed = trotter_circuit.decompose().decompose()
+    if fake_backend:
+        trotter_transpiled = transpile(trotter_decomposed, backend=fake_backend)
+    else:
+        trotter_transpiled = transpile(trotter_decomposed, basis_gates=BASIS_GATES)
+    
+    # Calculate fidelity (exact vs Trotterized evolution)
+    exact_unitary = np.exp(-1j * hamil_matrix * args.evolution_time)
+    trotter_unitary = Operator(trotter_circuit).data
+    trotter_fidelity = float(np.abs(np.trace(trotter_unitary.conj().T @ exact_unitary)) / trotter_unitary.shape[0])
+    
+    # === VQE ANSATZ ESTIMATION ===
+    # Create ansatz circuit for resource estimation
+    if args.ansatz == "TwoLocal":
+        ansatz = TwoLocal(num_qubits, rotation_blocks='ry', entanglement_blocks='cx',
+                         entanglement=args.entanglement, reps=args.reps)
+    else:  # EfficientSU2
+        ansatz = efficient_su2(num_qubits, entanglement=args.entanglement, reps=args.reps)
+    
+    # Transpile ansatz
+    if fake_backend:
+        ansatz_transpiled = transpile(ansatz, backend=fake_backend)
+    else:
+        ansatz_transpiled = transpile(ansatz, basis_gates=BASIS_GATES)
+    
+    # Build results dict with resource estimates
+    results = {
+        "material": wannier_info,
+        "reference_energies": {
+            "exact_ground_ev": exact_ground_energy
+        },
+        "trotterization_estimate": {
+            "evolution_time": args.evolution_time,
+            "trotter_steps": args.trotter_steps,
+            "circuit_depth": trotter_transpiled.depth(),
+            "gate_count": sum(trotter_transpiled.count_ops().values()),
+            "gate_breakdown": dict(trotter_transpiled.count_ops()),
+            "fidelity": trotter_fidelity,
+            "num_qubits": num_qubits
+        },
+        "vqe_ansatz_estimate": {
+            "ansatz_type": args.ansatz,
+            "entanglement": args.entanglement,
+            "reps": args.reps,
+            "num_parameters": ansatz.num_parameters,
+            "circuit_depth": ansatz_transpiled.depth(),
+            "gate_count": sum(ansatz_transpiled.count_ops().values()),
+            "gate_breakdown": dict(ansatz_transpiled.count_ops()),
+            "num_qubits": num_qubits
+        },
+        "run_config": {
+            "t1_us": args.t1,
+            "t2_us": args.t2,
+            "backend": args.backend,
+            "coupling_map": args.coupling_map
+        }
+    }
+    
+    print(json.dumps(results, indent=2))

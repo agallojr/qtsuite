@@ -16,7 +16,7 @@ from qiskit.quantum_info import Operator
 from qiskit.circuit.library import QFTGate
 
 from qp4p_circuit import run_circuit, BASIS_GATES
-from qp4p_chem import MOLECULES, build_hamiltonian
+from qp4p_chem import MOLECULES, build_molecular_hamiltonian_fci
 from qp4p_args import add_noise_args, add_backend_args
 
 
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
     # Build Hamiltonian (as matrix for QPE)
     hamiltonian, fci_energy, scf_energy, mol_info = \
-        build_hamiltonian(args.molecule, args.bond_length, return_matrix=True)
+        build_molecular_hamiltonian_fci(args.molecule, args.bond_length, return_matrix=True)
     
     # Run QPE
     qpe_results = run_qpe(

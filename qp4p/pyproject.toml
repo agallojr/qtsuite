@@ -7,20 +7,25 @@ name = "qp4p"
 version = "0.1.0"
 description = "Quantum Programming for Programmers"
 readme = "README.md"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "qiskit>=2.0",
     "qiskit-ibm-runtime",
     "qiskit_qasm3_import",
     "qiskit_aer",
-    "qiskit_algorithms >=0.4",
+    "qiskit_algorithms",
     "qiskit_nature",
+    "qiskit-addon-sqd",
     "pennylane",
     "matplotlib",
     "pylatexenc",
     "numpy",
     "pyscf",
     "tomli",
+    "jarvis-tools",
+    "qrisp",
+    "numba>=0.59",
+    "quantum_linear_solvers @ git+https://github.com/agallojr/quantum_linear_solvers"
 ]
 
 [tool.setuptools]

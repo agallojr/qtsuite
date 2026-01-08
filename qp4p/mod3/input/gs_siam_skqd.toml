@@ -1,0 +1,115 @@
+# Sample-based Krylov Quantum Diagonalization (SKQD) for SIAM Sweep
+# Run with: python -m qp4p_sweeper mod3/src/gs_siam_skqd.py mod3/input/gs_siam_skqd.toml
+
+[global]
+_output_dir = "~/qp4p"
+num-orbs = 6
+hopping = 1.0
+onsite = 4.0
+hybridization = 1.0
+filling-factor = -0.5
+opt-level = 1
+
+# Good baseline - tuned for convergence
+[siam_good_baseline]
+krylov-dim = 8
+dt-mult = 1.0
+shots = 4096
+noise = 0.0
+max-iter = 15
+num-batches = 8
+samples-per-batch = 300
+
+# Smaller system - faster convergence
+[siam_small]
+num-orbs = 4
+krylov-dim = 6
+dt-mult = 1.0
+shots = 2048
+noise = 0.0
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+
+# Krylov dimension study
+[siam_krylov_study]
+krylov-dim = [3, 5, 7, 10]
+dt-mult = 1.0
+shots = 1024
+noise = 0.0
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+
+# Shots convergence
+[siam_shots_study]
+krylov-dim = 5
+dt-mult = 1.0
+shots = [512, 1024, 2048, 4096]
+noise = 0.0
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+
+# Noise resilience study
+[siam_noise_study]
+krylov-dim = 5
+dt-mult = 1.0
+shots = 1024
+noise = [0.0, 0.001, 0.005, 0.01]
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+
+# SQD iterations study
+[siam_iter_study]
+krylov-dim = 5
+dt-mult = 1.0
+shots = 1024
+noise = 0.0
+max-iter = [5, 10, 15, 20]
+num-batches = 5
+samples-per-batch = 200
+
+# SQD batches study
+[siam_batches_study]
+krylov-dim = 5
+dt-mult = 1.0
+shots = 1024
+noise = 0.0
+max-iter = 10
+num-batches = [3, 5, 7, 10]
+samples-per-batch = 200
+
+# System size study
+[siam_size_study]
+num-orbs = [6, 8, 10]
+krylov-dim = 5
+dt-mult = 1.0
+shots = 1024
+noise = 0.0
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+
+# Hamiltonian parameter study - onsite interaction
+[siam_onsite_study]
+onsite = [3.0, 5.0, 7.0]
+krylov-dim = 5
+dt-mult = 1.0
+shots = 1024
+noise = 0.0
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+
+# Backend noise study
+[siam_backend_study]
+krylov-dim = 5
+dt-mult = 1.0
+shots = 1024
+noise = 0.0
+max-iter = 10
+num-batches = 5
+samples-per-batch = 200
+backend = ["manila", "jakarta"]
