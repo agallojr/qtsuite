@@ -171,6 +171,11 @@ def run_cks_algorithm(matrix_A, vector_b, epsilon, shots):
     
     counts = {}
     for state, prob in prob_dict.items():
+        # Check for NaN or invalid probabilities
+        if np.isnan(prob) or np.isinf(prob):
+            raise ValueError(f"CKS returned invalid probability (NaN/Inf). "
+                           f"Try increasing epsilon or using a better-conditioned matrix.")
+        
         count = int(prob * shots)
         if count > 0:
             if isinstance(state, (int, float)):
