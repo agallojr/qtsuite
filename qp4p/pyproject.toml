@@ -25,7 +25,10 @@ dependencies = [
     "jarvis-tools",
     "qrisp",
     "numba>=0.59",
-    "quantum_linear_solvers @ git+https://github.com/agallojr/quantum_linear_solvers"
+    "quantum_linear_solvers @ git+https://github.com/agallojr/quantum_linear_solvers",
+    "duckdb",
+    "streamlit",
+    "plotly"
 ]
 
 [tool.setuptools]
