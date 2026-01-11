@@ -12,11 +12,44 @@ import json
 import shutil
 import sys
 import uuid
+import importlib.metadata
 from pathlib import Path
 from datetime import datetime
 from itertools import product
 
 import tomli as tomllib
+
+
+def get_library_versions() -> dict:
+    """
+    Capture versions of key libraries in the current environment.
+    
+    Returns:
+        Dictionary mapping package names to version strings
+    """
+    packages = [
+        "qrisp",
+        "qiskit",
+        "qiskit-aer",
+        "qiskit-ibm-runtime",
+        "qiskit-algorithms",
+        "qiskit-nature",
+        "qiskit-addon-sqd",
+        "numpy",
+        "scipy",
+        "pennylane",
+        "pyscf",
+        "tomli"
+    ]
+    
+    versions = {}
+    for package in packages:
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = "not installed"
+    
+    return versions
 
 
 def expand_case_lists(case_id: str, case_params: dict) -> list:
@@ -285,12 +318,16 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    # Capture library versions once for the entire sweep
+    library_versions = get_library_versions()
+    
     results = {
         "config_file": str(toml_path),
         "output_dir": str(output_dir),
         "run_id": run_id,
         "run_dir": str(run_dir),
         "timestamp": timestamp,
+        "library_versions": library_versions,
         "groups": {},
         "cases": {}
     }
