@@ -1,9 +1,10 @@
 # Image Flip Sweep 
 
 [global]
+_script = "mod1/src/image_flip.py"
 _output_dir = "~/qp4p"
 _group_postproc = "python -m postproc.image_viz"
-_final_postproc = "python -m qp4p_image_gallery"
+_final_postproc = "python -m qp4p_print_open_cmd"
 
 # Size study: test different image sizes
 [size_study]

@@ -23,7 +23,12 @@ Based on: https://qrisp.eu/general/tutorial/HHL.html
 import argparse
 import json
 import sys
+import os
 import numpy as np
+from contextlib import redirect_stdout
+
+# Disable Qrisp verbose output before importing
+os.environ['QRISP_VERBOSE'] = '0'
 
 from qrisp import QuantumFloat, QPE, prepare, cx, swap, invert
 from qrisp.operators import QubitOperator
@@ -33,6 +38,7 @@ from qiskit import transpile
 
 from qp4p_args import add_backend_args, add_noise_args
 from qp4p_circuit import build_noise_model
+from qp4p_output import create_standardized_output, output_json
 
 
 def parse_matrix(s: str) -> np.ndarray:
@@ -279,9 +285,11 @@ if __name__ == "__main__":
     # Create Hamiltonian evolution
     unitary = create_hamiltonian_evolution(matrix_A_scaled, t=-np.pi, steps=args.trotter_steps)
 
-    # Run HHL
+    # Run HHL (suppress Qrisp simulation output)
     n_qubits = int(np.log2(len(vector_b)))
-    solution_qf = HHL(tuple(vector_b), unitary, n=n_qubits, precision=args.precision)
+    with open(os.devnull, 'w', encoding='utf-8') as devnull:
+        with redirect_stdout(devnull):
+            solution_qf = HHL(tuple(vector_b), unitary, n=n_qubits, precision=args.precision)
 
     # Convert Qrisp circuit to Qiskit
     quantum_session = solution_qf.qs()
@@ -334,41 +342,39 @@ if __name__ == "__main__":
     l2_error = np.linalg.norm(quantum_solution - classical_solution_normalized)
     fidelity = np.abs(np.dot(quantum_solution, classical_solution_normalized))**2
 
-    # Build results dict
-    results = {
-        "problem": {
+    # Build standardized output
+    output = create_standardized_output(
+        algorithm="hhl",
+        script_name="ax_equals_b_hhl_qrisp.py",
+        problem={
             "matrix_A": matrix_A.tolist(),
             "vector_b": vector_b.tolist(),
-            "dimension": n
-        },
-        "preprocessing": {
-            "scale_factor": float(scale_factor),
+            "dimension": n,
             "eigenvalues_original": [float(e) for e in eigenvalues_orig],
-            "eigenvalues_scaled": [float(e) for e in eigenvalues_scaled]
+            "eigenvalues_scaled": [float(e) for e in eigenvalues_scaled],
+            "scale_factor": float(scale_factor)
         },
-        "hhl_config": {
+        config={
             "precision": args.precision,
             "trotter_steps": args.trotter_steps,
-            "shots": args.shots
+            "shots": args.shots,
+            "backend": args.backend if args.backend else "aer_simulator",
+            "coupling_map": args.coupling_map
         },
-        "circuit_info": {
-            "num_qubits": transpiled.num_qubits,
-            "depth": transpiled.depth(),
-            "gate_counts": dict(transpiled.count_ops())
-        },
-        "solutions": {
+        results={
             "quantum_normalized": quantum_solution.tolist(),
             "classical_normalized": classical_solution_normalized.tolist(),
             "classical_unnormalized": classical_solution.tolist()
         },
-        "metrics": {
+        metrics={
             "l2_error": float(l2_error),
             "fidelity": float(fidelity)
         },
-        "run_config": {
-            "backend": args.backend if args.backend else "aer_simulator",
-            "coupling_map": args.coupling_map
+        circuit_info={
+            "num_qubits": transpiled.num_qubits,
+            "depth": transpiled.depth(),
+            "gate_counts": dict(transpiled.count_ops())
         }
-    }
+    )
 
-    print(json.dumps(results, indent=2))
+    output_json(output)

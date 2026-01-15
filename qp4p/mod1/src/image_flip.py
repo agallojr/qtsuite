@@ -2,47 +2,21 @@
 Image flip demonstration
 
 Sample execution:
-    python src/image_flip.py --size 4 --shots 1024
-    python src/image_flip.py --image input/sample.png --shots 2048
-    python src/image_flip.py --size 8 --t1 50 --t2 40 --shots 4096
+    python mod1/src/image_flip.py --size 4
+    python mod1/src/image_flip.py --image input/sample.png --shots 2048
+    python mod1/src/image_flip.py --size 8 --t1 50 --t2 40 --backend manila
+    python mod1/src/image_flip.py --size 4 --optimization-level 3 --shots 4096
 """
 
 import argparse
-import json
 import numpy as np
 from qiskit import QuantumCircuit
-from qp4p_circuit import run_circuit, estimate_shots
+from qp4p_circuit import transpile_circuit, execute_circuit
+from qp4p_output import output_json
 from qp4p_args import add_standard_quantum_args
 from qp4p_util import load_or_generate_image, validate_power_of_2
 
 # *****************************************************************************
-
-def build_mirror_circuit(nq: int) -> QuantumCircuit:
-    """
-    Build a circuit that performs horizontal mirror (flip about Y-axis).
-    For an s×s image with n=2*log2(s) qubits, the lower half are column qubits.
-    
-    Pixel index encoding:
-      - Index = row * s + col
-      - Lower n/2 qubits encode column (0 to s-1)
-      - Upper n/2 qubits encode row (0 to s-1)
-    
-    To flip column c → column (s-1-c), we invert all column bits using X gates.
-    Example for s=4 (2 column qubits):
-      col 0 (00) → col 3 (11)
-      col 1 (01) → col 2 (10)
-      col 2 (10) → col 1 (01)
-      col 3 (11) → col 0 (00)
-    """
-    cq = nq // 2  # Number of qubits encoding columns
-    circ = QuantumCircuit(nq)
-    
-    # Apply X gate to all column qubits to invert column index
-    for index in range(cq):
-        circ.x(index)
-    
-    return circ
-
 
 def make_mirror_circuit(pixels_normalized: np.ndarray) -> QuantumCircuit:
     """
@@ -127,9 +101,7 @@ if __name__ == "__main__":
                         help="Path to input image file")
     parser.add_argument("--size", type=validate_power_of_2, default=4,
                         help="Image size (must be power of 2, default: 4)")
-    parser.add_argument("--shots", type=int, default=None,
-                        help="Number of shots (default: auto-estimated)")
-    add_standard_quantum_args(parser, include_shots=False)
+    add_standard_quantum_args(parser)
     args = parser.parse_args()
 
     # 1. Load and preprocess the image
@@ -142,17 +114,20 @@ if __name__ == "__main__":
     # 2. Create circuit: amplitude encode original, mirror it, measure
     qc = make_mirror_circuit(norm_pixels)
 
-    # 3. Estimate shots if not provided
+    # 3. Determine shots (use default 1024 from args, or estimate based on image size)
     num_pixels = args.size * args.size
-    if args.shots is None:
-        shots = estimate_shots(num_pixels)
-    else:
-        shots = args.shots
+    # For larger images, increase shots for better reconstruction
+    if num_pixels > 16:  # For images larger than 4x4
+        args.shots = max(args.shots, num_pixels * 10)
 
-    # 4. Run the circuit
-    run_result = run_circuit(qc, shots=shots, t1=args.t1, t2=args.t2, 
-                           backend=args.backend, coupling_map=args.coupling_map)
-    counts = run_result["counts"]
+    # 4. Transpile and execute the circuit
+    # Transpile
+    transpile_result = transpile_circuit(qc, args)
+    qc_transpiled, backend, noise_model, _ = transpile_result
+    
+    # Execute
+    result = execute_circuit(qc_transpiled, backend, noise_model, args=args)
+    counts = result["counts"]
 
     # 5. Reconstruct images
     # Original image (from pixel data)
@@ -167,35 +142,24 @@ if __name__ == "__main__":
     # Compute fidelity
     fidelity = compute_fidelity(expected_mirrored, mirrored_image)
 
-    # 6. Build results dict with visualization data
-    results = {
-        "image": {
-            "size": args.size,
-            "num_pixels": num_pixels,
-            "source": args.image if args.image else "generated_gradient"
+    # 6. Output standardized JSON
+    output_json(
+        algorithm="image_flip",
+        problem={
+            "image": {
+                "source": args.image,
+                "size": args.size,
+                "num_pixels": num_pixels
+            }
         },
-        "circuit_stats": {
-            "qubits": qc.num_qubits,
-            "depth": qc.depth(),
-            "gate_counts": dict(qc.count_ops())
-        },
-        "transpiled_stats": run_result["transpiled_stats"],
-        "run": {
-            "shots": shots,
-            "fidelity": round(fidelity, 4),
-            "t1_us": args.t1,
-            "t2_us": args.t2
-        },
-        "backend_info": json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None,
-        "visualization_data": {
+        config_args=args,
+        results_data={
+            **result,
             "original_image": original_image.tolist(),
             "mirrored_image": mirrored_image.tolist(),
             "expected_mirrored": expected_mirrored.tolist(),
-            "fidelity": float(fidelity)
-        }
-    }
-
-    # 7. Print results as JSON
-    print(json.dumps(results, indent=2))
-
-
+            "fidelity": round(fidelity, 4)
+        },
+        original_circuit=qc,
+        transpile_result=transpile_result
+    )

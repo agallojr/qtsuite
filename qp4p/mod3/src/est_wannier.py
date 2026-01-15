@@ -8,7 +8,6 @@ for simulating solid-state materials using Trotterization and VQE ansatz circuit
 #pylint: disable=protected-access, invalid-name
 
 import argparse
-import json
 import sys
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, transpile
@@ -18,6 +17,7 @@ from qiskit.quantum_info import Operator
 from qp4p_chem import build_wannier_hamiltonian
 from qp4p_circuit import build_noise_model, BASIS_GATES
 from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json
 
 
 # *****************************************************************************
@@ -117,37 +117,38 @@ if __name__ == "__main__":
     else:
         ansatz_transpiled = transpile(ansatz, basis_gates=BASIS_GATES)
     
-    # Build results dict with resource estimates
-    results = {
-        "material": wannier_info,
-        "reference_energies": {
-            "exact_ground_ev": exact_ground_energy
+    # Build standardized output
+    output = create_standardized_output(
+        algorithm="wannier",
+        script_name="est_wannier.py",
+        problem={
+            "material": wannier_info,
+            "exact_ground_energy": exact_ground_energy
         },
-        "trotterization_estimate": {
+        config={
             "evolution_time": args.evolution_time,
             "trotter_steps": args.trotter_steps,
-            "circuit_depth": trotter_transpiled.depth(),
-            "gate_count": sum(trotter_transpiled.count_ops().values()),
-            "gate_breakdown": dict(trotter_transpiled.count_ops()),
-            "fidelity": trotter_fidelity,
-            "num_qubits": num_qubits
-        },
-        "vqe_ansatz_estimate": {
             "ansatz_type": args.ansatz,
             "entanglement": args.entanglement,
             "reps": args.reps,
-            "num_parameters": ansatz.num_parameters,
-            "circuit_depth": ansatz_transpiled.depth(),
-            "gate_count": sum(ansatz_transpiled.count_ops().values()),
-            "gate_breakdown": dict(ansatz_transpiled.count_ops()),
-            "num_qubits": num_qubits
-        },
-        "run_config": {
             "t1_us": args.t1,
             "t2_us": args.t2,
             "backend": args.backend,
             "coupling_map": args.coupling_map
+        },
+        results={
+            "trotter_fidelity": trotter_fidelity,
+            "num_parameters": ansatz.num_parameters
+        },
+        circuit_info={
+            "trotter_depth": trotter_transpiled.depth(),
+            "trotter_gate_count": sum(trotter_transpiled.count_ops().values()),
+            "trotter_gate_breakdown": dict(trotter_transpiled.count_ops()),
+            "ansatz_depth": ansatz_transpiled.depth(),
+            "ansatz_gate_count": sum(ansatz_transpiled.count_ops().values()),
+            "ansatz_gate_breakdown": dict(ansatz_transpiled.count_ops()),
+            "num_qubits": num_qubits
         }
-    }
+    )
     
-    print(json.dumps(results, indent=2))
+    output_json(output)

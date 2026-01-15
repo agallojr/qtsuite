@@ -119,11 +119,55 @@ In the later modules, we show examples of building and executing quantum circuit
 
 The sweeper tool is located in the qp4p package and can be invoked with various configuration options to run parameter sweeps. One thing it does is keep the output isolated in its own directory for easy organization. Each case in the sweep is also stored in its own separate directory. By separating data generation from post-processing we allow for multiple post-processing steps.
 
-The toml file allows groupings of swept cases and will lay down metadata about the group which can be used by postprocessing scripts to identify the cases within the group and other parameters for the post-processing step. Variables in the toml with a "_" prefix are arguments to the sweeper itself and are not swept (e.g. path to root outdir).
+### TOML Configuration Structure
+
+The TOML input file defines parameter sweeps using a hierarchical structure with `[global]` and group-specific sections. Understanding the difference between these is essential:
+
+**Global Parameters** (`[global]` section):
+- Apply to all groups and cases in the sweep
+- Typically used for common settings like output directory, script path, and shared execution parameters
+- Can be overridden by group-specific parameters
+
+**Group Parameters** (named sections like `[ghz_noise]`):
+- Apply only to cases within that specific group
+- Override global parameters if the same parameter is specified
+- Define the actual parameter values to sweep
+
+**Special `_` Prefixed Parameters**:
+Parameters starting with underscore are special sweeper directives and are NOT passed as command-line arguments to the script:
+
+- `_output_dir`: Root directory for sweep results (default: `~/qp4p`)
+- `_script`: Path to the Python script to execute for each case
+- `_group_postproc`: Postprocessing script(s) to run after all cases in a group complete
+- `_case_postproc`: Postprocessing script(s) to run after each individual case
+- `_final_postproc`: Postprocessing script(s) to run after all groups complete
+
+**Parameter Sweeps**:
+- Scalar values (e.g., `n = 3`) are passed directly to each case
+- List values (e.g., `t1 = [50, 100, 200]`) create multiple cases via cartesian product
+- Multi-value parameters (e.g., `data = [1.0, 0.0, 0.0]`) are expanded as multiple CLI arguments
+
+Example TOML structure:
+```toml
+[global]
+_output_dir = "~/qp4p"
+_script = "mod0/src/qubits.py"
+shots = 1024
+optimization_level = 1
+
+[ghz_noise]
+example = "ghz"
+n = 3
+t1 = [50, 100, 200]
+t2 = [30, 60, 120]
+_group_postproc = "python mod0/src/postproc/ghz_uq_postproc.py"
+```
+
+This creates 9 cases (3 t1 values × 3 t2 values), each inheriting `shots` and `optimization_level` from global.
 
 For example, here we run the core image_flip demo with a parameter sweep defined in the toml input file, running just one group of cases defined in that input file:
 ```bash
-python -m qp4p_sweeper mod1/src/image_flip.py mod1/input/image_flip.toml --group size_study
+./sweeper.sh mod1/input/image_flip.toml --group size_study
 ```
 
 The core algorithm json output includes many metadata fields about the problem, solution, and execution environment. Students are encouraged to consider adding their own custom metadata fields to capture domain-specific insights. These can include performance metrics, hardware-specific details, or any other relevant information for their particular use case. Such metadata can be invaluable for tracking experimental results and comparing different approaches. 

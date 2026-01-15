@@ -204,11 +204,142 @@ def build_noise_model(t1: float = None, t2: float = None,
     return noise_model, fake_backend, coupling_map_obj
 
 
+def transpile_circuit(qc: QuantumCircuit, args=None, t1: float = None, t2: float = None,
+                      backend: str = None, coupling_map: str = "default", 
+                      optimization_level: int = 1) -> tuple:
+    """
+    Transpile a circuit for a specific backend and noise model.
+    
+    Args:
+        qc: The quantum circuit to transpile.
+        args: Optional argparse Namespace with t1, t2, backend, coupling_map, optimization_level attributes.
+              If provided, these override the individual parameters.
+        t1: T1 relaxation time in microseconds (energy decay). None = no noise.
+        t2: T2 dephasing time in microseconds (dephasing). Must be <= 2*T1.
+        backend: Name of fake backend (e.g., 'manila', 'jakarta'). Case-insensitive.
+                 If provided with t1/t2, the t1/t2 values override backend noise.
+        coupling_map: "default" (backend's coupling) or "all-to-all" (full connectivity).
+        optimization_level: Transpilation optimization level (0-3).
+    
+    Returns:
+        Dict with keys:
+            transpiled_circuit: The transpiled quantum circuit
+            backend: The AerSimulator backend instance
+            noise_model: The noise model (if any)
+            backend_info: Backend details dict (includes transpile_time)
+    """
+    import time
+    
+    # Extract from args if provided
+    if args is not None:
+        t1 = getattr(args, 't1', t1)
+        t2 = getattr(args, 't2', t2)
+        backend = getattr(args, 'backend', backend)
+        coupling_map = getattr(args, 'coupling_map', coupling_map)
+        optimization_level = getattr(args, 'optimization_level', optimization_level)
+    
+    noise_model, fake_backend, coupling_map_obj = build_noise_model(t1, t2, backend, coupling_map)
+    
+    # Capture transpilation timing
+    transpile_start = time.time()
+    
+    # If using a fake backend, transpile to its basis gates and coupling map
+    if fake_backend is not None:
+        # Only pass coupling_map if it's explicitly overriding the backend's default
+        if coupling_map == "all-to-all":
+            qc_transpiled = transpile(qc, backend=fake_backend, coupling_map=coupling_map_obj, 
+                                     optimization_level=optimization_level)
+        else:
+            # Use backend's native coupling map (don't pass coupling_map parameter)
+            qc_transpiled = transpile(qc, backend=fake_backend, 
+                                     optimization_level=optimization_level)
+        backend_simulator = AerSimulator.from_backend(fake_backend)
+    else:
+        qc_transpiled = transpile(qc, optimization_level=optimization_level)
+        backend_simulator = AerSimulator()
+    
+    transpile_end = time.time()
+    
+    backend_info = get_backend_info(fake_backend)
+    
+    # Initialize backend_info if None
+    if backend_info is None:
+        backend_info = {}
+    
+    # Add transpilation timing to backend_info
+    backend_info["transpile_time"] = {
+        "start": transpile_start,
+        "end": transpile_end,
+        "cumulative_seconds": transpile_end - transpile_start
+    }
+    
+    # If t1/t2 override was used, replace qubit_properties with uniform t1/t2
+    if t1 is not None and t2 is not None:
+        num_qubits = backend_info.get("num_qubits", 0)
+        if num_qubits == 0 and fake_backend is None:
+            # For AerSimulator without fake backend, get qubit count from circuit
+            num_qubits = qc_transpiled.num_qubits
+        backend_info["qubit_properties"] = {
+            i: {"t1_us": t1, "t2_us": t2} for i in range(num_qubits)
+        }
+    
+    return {
+        "transpiled_circuit": qc_transpiled,
+        "backend": backend_simulator,
+        "noise_model": noise_model,
+        "backend_info": backend_info
+    }
+
+
+def execute_circuit(qc_transpiled: QuantumCircuit, backend, noise_model=None, 
+                    shots: int = 1024, args=None) -> dict:
+    """
+    Execute a transpiled circuit on a backend.
+    
+    Args:
+        qc_transpiled: The transpiled quantum circuit to execute.
+        backend: The AerSimulator backend instance to use.
+        noise_model: Optional noise model to apply.
+        shots: Number of shots.
+        args: Optional argparse Namespace with shots attribute.
+              If provided, overrides the shots parameter.
+    
+    Returns:
+        Dict with counts and execution timing.
+    """
+    import time
+    
+    # Extract from args if provided
+    if args is not None:
+        shots = getattr(args, 'shots', shots)
+    
+    # Capture execution timing
+    execute_start = time.time()
+    
+    if noise_model is not None:
+        result = backend.run(qc_transpiled, shots=shots, noise_model=noise_model).result()
+    else:
+        result = backend.run(qc_transpiled, shots=shots).result()
+    
+    execute_end = time.time()
+    
+    return {
+        "counts": result.get_counts(),
+        "execute_time": {
+            "start": execute_start,
+            "end": execute_end,
+            "cumulative_seconds": execute_end - execute_start
+        }
+    }
+
+
 def run_circuit(qc: QuantumCircuit, shots: int = 1024, 
                 t1: float = None, t2: float = None,
                 backend: str = None, coupling_map: str = "default") -> dict:
     """
     Run a circuit on the Aer simulator and return results dict.
+    
+    Convenience function that combines transpile_circuit and execute_circuit.
     
     Args:
         qc: The quantum circuit to run.
@@ -228,38 +359,17 @@ def run_circuit(qc: QuantumCircuit, shots: int = 1024,
     Typical values for superconducting qubits: T1 ~ 50-150 µs, T2 ~ 50-120 µs.
     Longer is better.
     """
-    noise_model, fake_backend, coupling_map_obj = build_noise_model(t1, t2, backend, coupling_map)
+    # Transpile the circuit
+    qc_transpiled, backend_simulator, noise_model, backend_info = transpile_circuit(
+        qc, t1=t1, t2=t2, backend=backend, coupling_map=coupling_map
+    )
     
-    # If using a fake backend, transpile to its basis gates and coupling map
-    if fake_backend is not None:
-        # Only pass coupling_map if it's explicitly overriding the backend's default
-        if coupling_map == "all-to-all":
-            qc_transpiled = transpile(qc, backend=fake_backend, coupling_map=coupling_map_obj)
-        else:
-            # Use backend's native coupling map (don't pass coupling_map parameter)
-            qc_transpiled = transpile(qc, backend=fake_backend)
-        simulator = AerSimulator.from_backend(fake_backend)
-    else:
-        qc_transpiled = qc
-        simulator = AerSimulator()
+    # Execute the transpiled circuit
+    exec_result = execute_circuit(qc_transpiled, backend_simulator, noise_model=noise_model, shots=shots)
     
-    if noise_model is not None:
-        result = simulator.run(qc_transpiled, shots=shots, noise_model=noise_model).result()
-    else:
-        result = simulator.run(qc_transpiled, shots=shots).result()
-    
-    backend_info = get_backend_info(fake_backend)
-    
-    # If t1/t2 override was used, replace qubit_properties with uniform t1/t2
-    if backend_info is not None and t1 is not None and t2 is not None:
-        # Replace per-qubit T1/T2 with the user-provided values
-        num_qubits = backend_info.get("num_qubits", 0)
-        backend_info["qubit_properties"] = {
-            i: {"t1_us": t1, "t2_us": t2} for i in range(num_qubits)
-        }
-    
+    # Combine results
     return {
-        "counts": result.get_counts(),
+        "counts": exec_result["counts"],
         "transpiled_stats": {
             "depth": qc_transpiled.depth(),
             "gate_counts": dict(qc_transpiled.count_ops()),
@@ -310,74 +420,54 @@ def run_estimator(circuit, observable, shots: int = 1024,
     return float(result[0].data.evs)
 
 
-def run_circuit_display(circ: QuantumCircuit, t1: float = None, t2: float = None,
+def run_circuit_display(circ: QuantumCircuit, args=None, t1: float = None, t2: float = None,
     shots: int = 1024, display: bool = True, backend: str = None, 
-    coupling_map: str = "default") -> dict:
-    """Run a circuit, print JSON output, optionally display graphical views.
+    coupling_map: str = "default", optimization_level: int = 1) -> dict:
+    """Run a circuit, optionally display graphical views, return all data for output_json.
     
     Args:
         circ: The quantum circuit to run.
+        args: Optional argparse Namespace with parameters (takes precedence over individual params).
         t1: T1 relaxation time in microseconds.
         t2: T2 relaxation time in microseconds.
         shots: Number of shots.
         display: Whether to display circuit diagram and histogram (graphical).
         backend: Name of fake backend (e.g., 'manila'). Case-insensitive.
+        coupling_map: "default" or "all-to-all".
+        optimization_level: Transpilation optimization level (0-3).
     
     Returns:
-        Dict with counts, transpiled_stats, and backend_info.
+        Dict with transpile_result tuple and execution results for output_json.
     """
-    run_result = run_circuit(circ, t1=t1, t2=t2, shots=shots, backend=backend, coupling_map=coupling_map)
+    # Extract parameters from args if provided
+    if args is not None:
+        t1 = getattr(args, 't1', t1)
+        t2 = getattr(args, 't2', t2)
+        shots = getattr(args, 'shots', shots)
+        backend = getattr(args, 'backend', backend)
+        coupling_map = getattr(args, 'coupling_map', coupling_map)
+        optimization_level = getattr(args, 'optimization_level', optimization_level)
     
-    # Prepare backend_info with compact formatting for coupling_map, gate_errors, and qubit_properties
-    backend_info = run_result["backend_info"]
-    if backend_info:
-        backend_info_compact = backend_info.copy()
-        if "coupling_map" in backend_info_compact:
-            backend_info_compact["coupling_map"] = json.dumps(backend_info_compact["coupling_map"], separators=(',', ':'))
-        if "gate_errors" in backend_info_compact:
-            backend_info_compact["gate_errors"] = json.dumps(backend_info_compact["gate_errors"], separators=(',', ':'))
-        if "qubit_properties" in backend_info_compact:
-            backend_info_compact["qubit_properties"] = json.dumps(backend_info_compact["qubit_properties"], separators=(',', ':'))
-    else:
-        backend_info_compact = None
+    # Transpile the circuit
+    transpile_result = transpile_circuit(
+        circ, t1=t1, t2=t2, backend=backend, coupling_map=coupling_map, 
+        optimization_level=optimization_level
+    )
     
-    # Determine actual coupling map mode
-    if backend is None:
-        actual_coupling_mode = "all-to-all"
-    else:
-        actual_coupling_mode = coupling_map
-    
-    # Always print JSON output
-    results = {
-        "circuit_stats": {
-            "qubits": circ.num_qubits,
-            "depth": circ.depth(),
-            "gate_counts": dict(circ.count_ops())
-        },
-        "transpiled_stats": run_result["transpiled_stats"],
-        "simulator_config": {
-            "shots": shots,
-            "noise_model": {
-                "t1_us": t1,
-                "t2_us": t2,
-                "enabled": t1 is not None and t2 is not None
-            },
-            "backend": backend,
-            "coupling_map_mode": actual_coupling_mode
-        },
-        "backend_info": backend_info_compact,
-        "results": {
-            "counts": run_result["counts"]
-        }
-    }
-    print(json.dumps(results, indent=2))
+    # Execute the transpiled circuit
+    exec_result = execute_circuit(
+        transpile_result["transpiled_circuit"], 
+        transpile_result["backend"], 
+        noise_model=transpile_result["noise_model"], 
+        shots=shots
+    )
     
     # Only show graphical display if requested
     if display:
         # Create main figure with circuit and histogram
         fig, axes = plt.subplots(1, 2, figsize=(12, 4))
         circ.draw("mpl", ax=axes[0])
-        plot_histogram(run_result["counts"], ax=axes[1])
+        plot_histogram(exec_result["counts"], ax=axes[1])
         plt.tight_layout()
         
         # Create separate figure for Bloch sphere
@@ -386,7 +476,12 @@ def run_circuit_display(circ: QuantumCircuit, t1: float = None, t2: float = None
         plot_bloch_multivector(sv)
         
         plt.show()
-    return run_result
+    
+    # Return both transpile_result and execution results for output_json
+    return {
+        "transpile_result": transpile_result,
+        "results_data": exec_result
+    }
 
 
 def estimate_shots(num_pixels: int, relative_error: float = 0.1, confidence: float = 0.95) -> int:

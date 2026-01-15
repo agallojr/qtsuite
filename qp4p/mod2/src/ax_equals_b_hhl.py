@@ -30,8 +30,9 @@ from qiskit import transpile
 from qiskit_aer import AerSimulator
 from linear_solvers import HHL
 
-from qp4p_args import add_noise_args, add_backend_args
+from qp4p_args import add_backend_args, add_noise_args
 from qp4p_circuit import build_noise_model
+from qp4p_output import create_standardized_output, output_json
 
 
 def parse_matrix(s: str) -> np.ndarray:
@@ -128,17 +129,17 @@ if __name__ == "__main__":
     t_circ = time.time() - t_start
     
     # Transpile circuit
-    circ_transpiled = transpile(circ, backend, optimization_level=3)
+    transpiled = transpile(circ, backend, optimization_level=3)
     
     # Decompose to avoid QPY issues with custom gates (ExactReciprocalGate)
-    circ_decomposed = circ_transpiled.decompose().decompose().decompose()
+    decomposed = transpiled.decompose().decompose().decompose()
     
     # Execute
     t_exec_start = time.time()
     if noise_model:
-        job = backend.run(circ_decomposed, shots=args.shots, noise_model=noise_model)
+        job = backend.run(decomposed, shots=args.shots, noise_model=noise_model)
     else:
-        job = backend.run(circ_decomposed, shots=args.shots)
+        job = backend.run(decomposed, shots=args.shots)
     
     result = job.result()
     t_exec = time.time() - t_exec_start
@@ -159,38 +160,35 @@ if __name__ == "__main__":
     fidelity = np.abs(np.dot(quantum_solution_normalized, classical_solution_normalized))**2
 
     # Build results dict
-    results = {
-        "problem": {
+    output = create_standardized_output(
+        algorithm="hhl",
+        script_name="ax_equals_b_hhl.py",
+        problem={
             "matrix_A": matrix_A.tolist(),
             "vector_b": vector_b.tolist(),
-            "dimension": len(vector_b),
-            "condition_number": float(np.linalg.cond(matrix_A))
+            "dimension": len(vector_b)
         },
-        "hhl_config": {
-            "shots": args.shots
-        },
-        "circuit_info": {
-            "num_qubits": circ_decomposed.num_qubits,
-            "depth": circ_decomposed.depth(),
-            "gate_counts": dict(circ_decomposed.count_ops()),
-            "generation_time_s": float(t_circ),
-            "execution_time_s": float(t_exec)
-        },
-        "solutions": {
-            "quantum_normalized": quantum_solution_normalized.tolist(),
-            "classical_normalized": classical_solution_normalized.tolist(),
-            "classical_unnormalized": classical_solution.tolist()
-        },
-        "metrics": {
-            "l2_error": float(l2_error),
-            "fidelity": float(fidelity)
-        },
-        "run_config": {
+        config={
+            "shots": args.shots,
             "backend": args.backend if args.backend else "aer_simulator",
             "t1_us": args.t1,
             "t2_us": args.t2,
             "coupling_map": args.coupling_map
+        },
+        results={
+            "quantum_normalized": quantum_solution_normalized.tolist(),
+            "classical_normalized": classical_solution_normalized.tolist(),
+            "classical_unnormalized": classical_solution.tolist()
+        },
+        metrics={
+            "l2_error": float(l2_error),
+            "fidelity": float(fidelity)
+        },
+        circuit_info={
+            "num_qubits": transpiled.num_qubits,
+            "depth": transpiled.depth(),
+            "gate_counts": dict(transpiled.count_ops())
         }
-    }
+    )
 
-    print(json.dumps(results, indent=2))
+    output_json(output)

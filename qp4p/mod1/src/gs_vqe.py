@@ -5,12 +5,12 @@ VQE ground state energy calculation using shots-based simulation.
 #pylint: disable=protected-access, invalid-name
 
 import argparse
-import json
 import sys
 from qiskit.circuit.library import TwoLocal, efficient_su2
 from qp4p_chem import MOLECULES, build_molecular_hamiltonian_fci
 from qp4p_vqe import run_vqe_optimization
 from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json
 
 
 # *****************************************************************************
@@ -97,28 +97,32 @@ if __name__ == "__main__":
     chemical_accuracy = 0.0015936  # Hartree
     
     # Build results dict
-    results = {
-        "molecule": mol_info,
-        "reference_energies": {
-            "fci_hartree": fci_energy,
-            "scf_hartree": scf_energy
+    output = create_standardized_output(
+        algorithm="vqe",
+        script_name="gs_vqe.py",
+        problem={
+            "molecule": mol_info,
+            "reference_energies": {
+                "fci_hartree": fci_energy,
+                "scf_hartree": scf_energy
+            }
         },
-        "vqe": vqe_results,
-        "analysis": {
-            "vqe_energy_hartree": vqe_energy,
-            "error_hartree": vqe_error,
-            "error_vs_chemical_accuracy": vqe_error / chemical_accuracy,
-            "within_chemical_accuracy": bool(vqe_error < chemical_accuracy)
-        },
-        "run_config": {
+        config={
             "shots": args.shots,
             "t1_us": args.t1,
             "t2_us": args.t2,
             "backend": args.backend
+        },
+        results=vqe_results,
+        metrics={
+            "vqe_energy_hartree": vqe_energy,
+            "error_hartree": vqe_error,
+            "error_vs_chemical_accuracy": vqe_error / chemical_accuracy,
+            "within_chemical_accuracy": bool(vqe_error < chemical_accuracy)
         }
-    }
+    )
     
-    print(json.dumps(results, indent=2))
+    output_json(output)
 
     
 

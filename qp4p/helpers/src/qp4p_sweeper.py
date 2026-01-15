@@ -19,6 +19,10 @@ from itertools import product
 
 import tomli as tomllib
 
+# ANSI color codes
+GREEN = '\033[92m'
+RED = '\033[91m'
+RESET = '\033[0m'
 
 def get_library_versions() -> dict:
     """
@@ -157,11 +161,13 @@ def build_command_args(params: dict, arg_mapping: dict = None) -> list:
     """
     Convert parameter dict to command-line arguments.
     
+    Normalizes hyphenated parameter names to use underscores.
+    
     Args:
         params: Parameter dict from TOML
         arg_mapping: Optional dict mapping param names to CLI arg names
                      e.g., {"bond_length": "--bond-length"}
-                     If None, uses --{param_name} with underscores replaced by dashes
+                     If None, uses --{param_name} (preserving underscores/hyphens as-is)
     
     Returns:
         List of command-line arguments
@@ -173,16 +179,25 @@ def build_command_args(params: dict, arg_mapping: dict = None) -> list:
         if key in skip_keys or key.startswith("_"):
             continue
         
+        # Convert underscores to hyphens for CLI args (argparse convention)
+        cli_key = key.replace('_', '-')
+        
         # Determine CLI arg name
         if arg_mapping and key in arg_mapping:
             arg_name = arg_mapping[key]
         else:
-            arg_name = f"--{key.replace('_', '-')}"
+            # Use hyphenated key for CLI args
+            arg_name = f"--{cli_key}"
         
         # Handle different value types
         if isinstance(value, bool):
             if value:
                 args.append(arg_name)
+        elif isinstance(value, list):
+            # Expand list into multiple arguments
+            args.append(arg_name)
+            for item in value:
+                args.append(str(item))
         elif value is not None:
             args.append(arg_name)
             args.append(str(value))
@@ -235,9 +250,11 @@ def run_postproc(postproc_list: list, postproc_json: Path, script_dir: Path = No
                 env=env
             )
             if result.returncode == 0:
-                print("    ✓ Postproc completed")
+                print(f"    {GREEN}✓ Postproc completed{RESET}")
+                if result.stdout:
+                    print(result.stdout)
             else:
-                print(f"    ✗ Postproc error (code {result.returncode})")
+                print(f"    {RED}✗ Postproc error (code {result.returncode}){RESET}")
                 if result.stderr:
                     print(f"      {result.stderr[:200]}")
             results.append({
@@ -248,7 +265,7 @@ def run_postproc(postproc_list: list, postproc_json: Path, script_dir: Path = No
                 "stderr": result.stderr[:500] if result.stderr else ""
             })
         except Exception as e:
-            print(f"    ✗ Postproc exception: {e}")
+            print(f"    {RED}✗ Postproc exception: {e}{RESET}")
             results.append({"command": cmd, "status": "exception", "error": str(e)})
     
     return results
@@ -413,9 +430,9 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
                 }
                 
                 if result.returncode == 0:
-                    print("    ✓ Completed")
+                    print(f"    {GREEN}✓ Completed{RESET}")
                 else:
-                    print(f"    ✗ Error (code {result.returncode})")
+                    print(f"    {RED}✗ Error (code {result.returncode}){RESET}")
                     if result.stderr:
                         print(f"      {result.stderr[:200]}")
             
@@ -425,7 +442,7 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
                     "status": "timeout",
                     "output_dir": str(case_dir)
                 }
-                print("    ✗ Timeout")
+                print(f"    {RED}✗ Timeout{RESET}")
             
             except Exception as e:
                 case_result = {
@@ -434,7 +451,7 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
                     "error": str(e),
                     "output_dir": str(case_dir)
                 }
-                print(f"    ✗ Exception: {e}")
+                print(f"    {RED}✗ Exception: {e}{RESET}")
             
             results["cases"][case_id] = case_result
         
@@ -536,8 +553,9 @@ Usage:
     python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml --dry-run
     python qp4p_sweeper.py src/gs_qpe.py input/gs_qpe.toml --group size_study
 """)
-    parser.add_argument("script", help="Python script to run (e.g., src/gs_qpe.py)")
     parser.add_argument("toml_file", help="Path to TOML configuration file")
+    parser.add_argument("script", nargs="?", default=None, 
+                        help="Python script to run (optional if TOML specifies scripts per experiment)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print commands without executing")
     parser.add_argument("--group", type=str, default=None,
@@ -546,7 +564,17 @@ Usage:
     args = parser.parse_args()
     
     try:
-        results = run_sweep(args.toml_file, args.script, dry_run=args.dry_run, group_filter=args.group)
+        # If script not provided as argument, try to read from TOML
+        script = args.script
+        if script is None:
+            import tomli
+            with open(args.toml_file, "rb") as f:
+                toml_data = tomli.load(f)
+                script = toml_data.get("global", {}).get("_script")
+                if script is None:
+                    raise ValueError("No script specified. Provide as argument or set _script in [global] section of TOML")
+        
+        results = run_sweep(args.toml_file, script, dry_run=args.dry_run, group_filter=args.group)
         
         # Print summary
         print("\n=== Summary ===")

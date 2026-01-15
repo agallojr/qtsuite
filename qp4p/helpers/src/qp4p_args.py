@@ -50,18 +50,25 @@ def add_execution_args(parser: argparse.ArgumentParser, default_shots: int = 102
 
 def add_standard_quantum_args(parser: argparse.ArgumentParser, 
                                default_shots: int = 1024,
-                               include_shots: bool = True) -> None:
+                               include_shots: bool = True,
+                               default_optimization_level: int = 1) -> None:
     """
     Add all standard quantum execution arguments to parser.
     
-    Includes: t1, t2, backend, coupling-map, shots (optional), seed
+    Includes: t1, t2, backend, coupling-map, shots (optional), seed, optimization-level
     
     Args:
         parser: ArgumentParser to add arguments to
         default_shots: Default number of shots
         include_shots: Whether to include shots and seed arguments
+        default_optimization_level: Default transpilation optimization level (0-3)
     """
     add_noise_args(parser)
     add_backend_args(parser)
     if include_shots:
         add_execution_args(parser, default_shots)
+    
+    # Add optimization level
+    parser.add_argument("--optimization-level", type=int, default=default_optimization_level,
+                        choices=[0, 1, 2, 3],
+                        help=f"Transpilation optimization level 0-3 (default: {default_optimization_level})")

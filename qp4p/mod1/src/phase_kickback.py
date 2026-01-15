@@ -16,6 +16,7 @@ import argparse
 import json
 from qiskit import QuantumCircuit
 from qp4p_circuit import run_circuit
+from qp4p_output import create_standardized_output, output_json
 from qp4p_args import add_standard_quantum_args
 
 
@@ -62,29 +63,35 @@ def run_example_kickback(t1: float = None, t2: float = None, backend: str = None
     result_no_kick = run_circuit(qc_no_kick, t1=t1, t2=t2, backend=backend, coupling_map="default")
     
     # Build results with visualization data
-    results = {
-        "with_kickback": {
-            "counts": result_kick["counts"],
-            "transpiled_stats": result_kick["transpiled_stats"],
-            "description": "Target in |1⟩ - control flips to |1⟩ due to kickback"
+    output = create_standardized_output(
+        algorithm="phase_kickback",
+        script_name="phase_kickback.py",
+        problem={
+            "description": "Demonstrate phase kickback with CNOT gate"
         },
-        "without_kickback": {
-            "counts": result_no_kick["counts"],
-            "transpiled_stats": result_no_kick["transpiled_stats"],
-            "description": "Target in |0⟩ - control stays in |0⟩"
-        },
-        "params": {
+        config={
             "t1": t1,
             "t2": t2,
             "backend": backend
         },
-        "backend_info": json.dumps(result_kick["backend_info"], separators=(',', ':')) if result_kick["backend_info"] else None
-    }
+        results={
+            "with_kickback": {
+                "counts": result_kick["counts"],
+                "transpiled_stats": result_kick["transpiled_stats"],
+                "description": "Target in |1⟩ - control flips to |1⟩"
+            },
+            "without_kickback": {
+                "counts": result_no_kick["counts"],
+                "transpiled_stats": result_no_kick["transpiled_stats"],
+                "description": "Target in |0⟩ - control stays in |0⟩"
+            }
+        },
+        backend_info=json.dumps(result_kick["backend_info"], separators=(',', ':')) if result_kick["backend_info"] else None
+    )
     
-    # Output JSON to stdout
-    print(json.dumps(results, indent=2))
+    output_json(output)
     
-    return results
+    return output
 
 
 # *****************************************************************************

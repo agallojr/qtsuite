@@ -11,7 +11,6 @@ subspace diagonalization for ground state energy estimation.
 #pylint: disable=invalid-name, protected-access, too-many-locals
 
 import argparse
-import json
 import numpy as np
 
 from pyscf import gto, scf, fci, ao2mo
@@ -23,6 +22,7 @@ from qiskit_addon_sqd.subsampling import postselect_by_hamming_right_and_left, s
 from qiskit_addon_sqd.fermion import bitstring_matrix_to_ci_strs, solve_fermion
 
 from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json
 from qp4p_circuit import build_noise_model
 from qp4p_chem import MOLECULES
 
@@ -295,44 +295,45 @@ if __name__ == "__main__":
         error_hartree = abs(final_energy - args.exact_energy)
         within_chemical_accuracy = bool(error_hartree < chemical_accuracy)
 
-    # Build results dict
-    results = {
-        "molecule": {
-            "name": args.molecule,
-            "bond_length": d,
-            "basis": mol_def["basis"],
-            "num_orbitals": num_orbitals,
-            "num_alpha": num_alpha,
-            "num_beta": num_beta,
-            "nuclear_repulsion_hartree": float(nuclear_repulsion_energy),
-            "open_shell": args.open_shell,
-            "spin_sq": args.spin_sq
+    # Build standardized output
+    output = create_standardized_output(
+        algorithm="sqd",
+        script_name="gs_sqd.py",
+        problem={
+            "molecule": {
+                "name": args.molecule,
+                "bond_length": d,
+                "basis": mol_def["basis"],
+                "num_orbitals": num_orbitals,
+                "num_alpha": num_alpha,
+                "num_beta": num_beta,
+                "nuclear_repulsion_hartree": float(nuclear_repulsion_energy),
+                "open_shell": args.open_shell,
+                "spin_sq": args.spin_sq
+            },
+            "exact_energy_hartree": args.exact_energy
         },
-        "sqd_config": {
+        config={
             "iterations": args.iterations,
             "num_batches": args.batches,
             "samples_per_batch": args.samples,
             "shots": args.shots,
             "synthetic_counts": args.synthetic,
-            "rng_seed": args.seed
-        },
-        "convergence": {
-            "energy_per_iteration": [float(np.min(energy_hist[i, :])) for i in range(args.iterations)],
-            "energy_std_per_iteration": [float(np.std(energy_hist[i, :])) for i in range(args.iterations)],
-            "spin_sq_per_iteration": [float(np.mean(spin_sq_hist[i, :])) for i in range(args.iterations)]
-        },
-        "results": {
-            "sqd_energy_hartree": final_energy,
-            "exact_energy_hartree": args.exact_energy,
-            "error_hartree": error_hartree,
-            "within_chemical_accuracy": within_chemical_accuracy
-        },
-        "run_config": {
             "t1_us": args.t1,
             "t2_us": args.t2,
             "backend": args.backend,
             "coupling_map": args.coupling_map
+        },
+        results={
+            "final_energy": final_energy,
+            "energy_history": energy_hist,
+            "spin_sq_history": spin_sq_hist
+        },
+        metrics={
+            "sqd_energy_hartree": final_energy,
+            "error_hartree": error_hartree,
+            "within_chemical_accuracy": within_chemical_accuracy
         }
-    }
+    )
 
-    print(json.dumps(results, indent=2))
+    output_json(output)

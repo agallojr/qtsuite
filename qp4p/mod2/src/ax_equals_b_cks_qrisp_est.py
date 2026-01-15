@@ -25,10 +25,17 @@ Paper: https://arxiv.org/abs/1511.02306
 import argparse
 import json
 import sys
+import os
 import numpy as np
+from contextlib import redirect_stdout, redirect_stderr
+
+# Disable Qrisp verbose output before importing
+os.environ['QRISP_VERBOSE'] = '0'
 
 from qrisp.algorithms.cks import CKS, inner_CKS
 from qrisp.jasp import terminal_sampling
+
+from qp4p_output import create_standardized_output, output_json, output_error
 
 
 
@@ -254,12 +261,28 @@ if __name__ == "__main__":
             "gate_counts": {}
         }
 
-    # Run CKS algorithm
+    # Run CKS algorithm (suppress Qrisp simulation output)
     try:
-        counts = run_cks_algorithm(matrix_A, vector_b, args.epsilon, args.shots)
+        with open(os.devnull, 'w', encoding='utf-8') as devnull:
+            with redirect_stdout(devnull), redirect_stderr(devnull):
+                counts = run_cks_algorithm(matrix_A, vector_b, args.epsilon, args.shots)
     except Exception as e:
-        print(f"Error running CKS algorithm: {e}", file=sys.stderr)
-        sys.exit(1)
+        output_error(
+            algorithm="cks",
+            script_name="ax_equals_b_cks_qrisp_est.py",
+            error_message=f"CKS algorithm execution failed: {e}",
+            partial_data={
+                "problem": {
+                    "matrix_A": matrix_A.tolist(),
+                    "vector_b": vector_b.tolist(),
+                    "dimension": n
+                },
+                "config": {
+                    "epsilon": args.epsilon,
+                    "shots": args.shots
+                }
+            }
+        )
 
     n_qubits = int(np.log2(len(vector_b)))
     quantum_solution = extract_solution_from_counts(counts, n_qubits)
@@ -272,31 +295,31 @@ if __name__ == "__main__":
     l2_error = np.linalg.norm(quantum_solution - classical_solution_normalized)
     fidelity = np.abs(np.dot(quantum_solution, classical_solution_normalized))**2
 
-    # Build results dict
-    results = {
-        "problem": {
+    # Build standardized output
+    output = create_standardized_output(
+        algorithm="cks",
+        script_name="ax_equals_b_cks_qrisp_est.py",
+        problem={
             "matrix_A": matrix_A.tolist(),
             "vector_b": vector_b.tolist(),
-            "dimension": n
-        },
-        "matrix_properties": {
+            "dimension": n,
             "eigenvalues": [float(e) for e in eigenvalues],
             "condition_number": float(condition_number)
         },
-        "cks_config": {
+        config={
             "epsilon": args.epsilon,
             "shots": args.shots
         },
-        "circuit_info": circuit_info,
-        "solutions": {
+        results={
             "quantum_normalized": quantum_solution.tolist(),
             "classical_normalized": classical_solution_normalized.tolist(),
             "classical_unnormalized": classical_solution.tolist()
         },
-        "metrics": {
+        metrics={
             "l2_error": float(l2_error),
             "fidelity": float(fidelity)
-        }
-    }
+        },
+        circuit_info=circuit_info
+    )
 
-    print(json.dumps(results, indent=2))
+    output_json(output)

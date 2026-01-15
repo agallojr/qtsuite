@@ -1,0 +1,9 @@
+# Hello World Sweep
+# Simple Bell state circuit - no arguments needed
+
+[global]
+_output_dir = "~/qp4p"
+_script = "mod0/src/hello_world_bell.py"
+
+[noargs]
+

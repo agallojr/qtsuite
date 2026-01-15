@@ -11,7 +11,6 @@ Quantum Eigensolver) to find the ground state energy and spin configuration.
 import re
 import argparse
 import sys
-import json
 import numpy as np
 from qiskit.quantum_info import SparsePauliOp, Statevector, Pauli
 from qiskit.circuit.library import TwoLocal, EfficientSU2
@@ -21,6 +20,7 @@ from qiskit_nature.second_q.hamiltonians.lattices.boundary_condition import Boun
 
 from qp4p_vqe import run_vqe_optimization
 from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json, output_error
 
 
 def spinop_to_pauli(hamiltonian_op, num_qubits):
@@ -262,14 +262,29 @@ def run_vqe(args):
     
     # Add visualization data for postprocessing
     # Convert complex matrices to real (Ising matrices should be real anyway)
-    output["visualization_data"] = {
+    visualization_data = {
         "coupling_matrix": np.real(coupling_matrix).tolist(),
         "interaction_matrix": np.real(graph_array).tolist(),
         "energy_history": vqe_result["energy_history"] if vqe_result["energy_history"] else [],
         "ground_state_spins": [int(s) for s in ground_state_spins]
     }
     
-    return output
+    # Return standardized output
+    return create_standardized_output(
+        algorithm="lattice_vqe",
+        script_name="lattice_vqe.py",
+        problem={
+            "lattice": output["lattice"],
+            "hamiltonian": output["hamiltonian"]
+        },
+        config=output["vqe_config"],
+        results={
+            "ground_state": output["ground_state"],
+            "vqe_results": output["vqe_results"]
+        },
+        metrics=output["fidelity"],
+        visualization_data=visualization_data
+    )
 
 
 def main():
@@ -324,21 +339,22 @@ Examples:
 
     
     if args.rows < 2 or args.cols < 2:
-        error_output = {"error": "Lattice must be at least 2x2"}
-        print(json.dumps(error_output), file=sys.stderr)
-        sys.exit(1)
+        output_error(
+            algorithm="lattice_vqe",
+            script_name="lattice_vqe.py",
+            error_message="Lattice must be at least 2x2"
+        )
     
     try:
         output = run_vqe(args)
-        print(json.dumps(output, indent=2))
+        output_json(output)
         
     except Exception as e:
-        error_output = {
-            "error": str(e),
-            "type": type(e).__name__
-        }
-        print(json.dumps(error_output), file=sys.stderr)
-        sys.exit(1)
+        output_error(
+            algorithm="lattice_vqe",
+            script_name="lattice_vqe.py",
+            error_message=f"{type(e).__name__}: {str(e)}"
+        )
 
 
 if __name__ == '__main__':

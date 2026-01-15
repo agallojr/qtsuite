@@ -26,16 +26,18 @@ def create_image_visualization(data, output_file=None, display=True):
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
-    viz_data = data.get("visualization_data", {})
-    image_info = data.get("image", {})
-    run_info = data.get("run", {})
+    # Extract from new standardized JSON structure
+    results = data.get("results", {})
+    problem = data.get("problem", {})
+    config = data.get("config", {})
     
-    original_image = np.array(viz_data.get("original_image", []))
-    mirrored_image = np.array(viz_data.get("mirrored_image", []))
-    fidelity = viz_data.get("fidelity", 0.0)
+    original_image = np.array(results.get("original_image", []))
+    mirrored_image = np.array(results.get("mirrored_image", []))
+    fidelity = results.get("fidelity", 0.0)
     
+    image_info = problem.get("image", {})
     size = image_info.get("size", 0)
-    shots = run_info.get("shots", 0)
+    shots = config.get("shots", 0)
     
     # Create side-by-side comparison
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -88,15 +90,18 @@ def main():
             data = json.load(f)
         
         # Generate output filename based on image config
-        image_info = data.get("image", {})
+        problem = data.get("problem", {})
+        image_info = problem.get("image", {})
         size = image_info.get("size", 0)
-        source = image_info.get("source", "unknown")
+        source = image_info.get("source")
         
         # Clean up source name for filename
         if source == "generated_gradient":
             source_name = "gradient"
+        elif source is None or source == "unknown":
+            source_name = "unknown"
         else:
-            source_name = Path(source).stem if source != "unknown" else "unknown"
+            source_name = Path(source).stem
         
         output_file = case_dir / f'image_flip_{size}x{size}_{source_name}.png'
         

@@ -1,0 +1,72 @@
+# Qubit Examples Sweep
+# Demonstrates state preparation, superposition, entanglement, and amplitude encoding
+
+[global]
+_output_dir = "~/qp4p"
+_script = "mod0/src/qubits.py"
+shots = 1024
+seed = 42
+optimization_level = 1
+no_display = true
+
+# State preparation: all qubits in |0> state
+[prep_0]
+example = "prep"
+n = 3
+state = 0
+
+# State preparation: all qubits in |1> state
+[prep_1]
+example = "prep"
+n = 3
+state = 1
+
+# Hadamard superposition with varying qubit counts
+[hadamard_sweep]
+example = "hadamard"
+n = [2, 3, 4, 5]
+
+# GHZ entangled state with varying qubit counts
+[ghz_sweep]
+example = "ghz"
+n = [2, 3, 4, 5]
+
+# Amplitude encoding with uniform distribution
+[amplitude_uniform]
+example = "amplitude"
+n = 3
+data = [0.5, 0.5, 0.5, 0.5]
+
+# Amplitude encoding with single basis state
+[amplitude_single]
+example = "amplitude"
+n = 3
+data = [1.0, 0.0, 0.0, 0.0]
+
+# Noise study: GHZ with varying T1/T2 times
+[ghz_noise]
+example = "ghz"
+n = 3
+t1 = [50, 100, 200]
+t2 = [30, 60, 120]
+
+
+# Noise study: GHZ with varying T1/T2 times (uncertainty quantification)
+[ghz_noise_uq]
+example = "ghz"
+n = 10
+t1 = [50, 50, 50, 50, 50]
+t2 = [30, 30, 30, 30, 30]
+_group_postproc = "python mod0/src/postproc/ghz_uq_postproc.py"
+
+
+# Noise study: GHZ with varying T1/T2 times (uncertainty quantification)
+# very noisy backend
+[ghz_noise_uq2]
+example = "ghz"
+n = 10
+t1 = [1, 1, 1, 1, 1]
+t2 = [1, 1, 1, 1, 1]
+_group_postproc = "python mod0/src/postproc/ghz_uq_postproc.py"
+
+

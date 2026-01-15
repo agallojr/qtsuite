@@ -14,7 +14,6 @@ Based on quantum-classical hybrid algorithm combining:
 #pylint: disable=invalid-name, protected-access, too-many-locals
 
 import argparse
-import json
 import time
 import numpy as np
 
@@ -27,6 +26,7 @@ from qiskit_addon_sqd.subsampling import postselect_by_hamming_right_and_left, s
 from qiskit_addon_sqd.fermion import solve_fermion
 
 from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json
 from qp4p_chem import build_siam_hamiltonian
 from qp4p_circuit import build_noise_model
 
@@ -257,34 +257,22 @@ if __name__ == "__main__":
     error_pct = (error_abs / abs(exact_energy)) * 100 if exact_energy != 0 else 0
     total_time = time.time() - start_time
     
-    # Build results dict
-    results = {
-        "siam_model": siam_info,
-        "skqd_config": {
+    # Build standardized output
+    output = create_standardized_output(
+        algorithm="sqd",
+        script_name="gs_siam_skqd.py",
+        problem={
+            "model": "SIAM",
+            "siam_info": siam_info,
+            "exact_energy": float(exact_energy)
+        },
+        config={
             "krylov_dim": args.krylov_dim,
             "dt_mult": args.dt_mult,
             "dt": float(dt),
             "max_iter": args.max_iter,
             "num_batches": args.num_batches,
-            "samples_per_batch": args.samples_per_batch
-        },
-        "circuit_info": {
-            "num_circuits": len(circuits),
-            "avg_depth": float(avg_depth),
-            "min_depth": int(min(depths)),
-            "max_depth": int(max(depths))
-        },
-        "convergence": {
-            "energy_per_iteration": [float(e) for e in energy_history],
-            "num_iterations": len(energy_history)
-        },
-        "results": {
-            "skqd_energy": skqd_energy,
-            "exact_energy": float(exact_energy),
-            "error_abs": error_abs,
-            "error_pct": error_pct
-        },
-        "run_config": {
+            "samples_per_batch": args.samples_per_batch,
             "shots": args.shots,
             "noise": args.noise,
             "t1_us": args.t1,
@@ -293,9 +281,15 @@ if __name__ == "__main__":
             "coupling_map": args.coupling_map,
             "opt_level": args.opt_level
         },
-        "timing": {
-            "total_seconds": total_time
+        results={
+            "skqd_energy": skqd_energy,
+            "energy_history": energy_history,
+            "total_time_seconds": total_time
+        },
+        metrics={
+            "error_abs": error_abs,
+            "error_pct": error_pct
         }
-    }
+    )
     
-    print(json.dumps(results, indent=2))
+    output_json(output)

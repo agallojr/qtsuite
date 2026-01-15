@@ -8,7 +8,6 @@ time evolution operator U = e^{-iHt}.
 #pylint: disable=protected-access, invalid-name, too-many-locals, too-many-arguments
 
 import argparse
-import json
 import numpy as np
 from scipy.linalg import expm
 from qiskit import QuantumCircuit, transpile
@@ -18,6 +17,7 @@ from qiskit.circuit.library import QFTGate
 from qp4p_circuit import run_circuit, BASIS_GATES
 from qp4p_chem import MOLECULES, build_molecular_hamiltonian_fci
 from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json
 
 
 def build_qpe_circuit(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4, 
@@ -209,26 +209,36 @@ if __name__ == "__main__":
     qpe_error = abs(qpe_energy - fci_energy)
     chemical_accuracy = 0.0015936  # Hartree
     
-    # Build results dict
-    results = {
-        "molecule": mol_info,
-        "reference_energies": {
-            "fci_hartree": fci_energy,
-            "scf_hartree": scf_energy
+    output = create_standardized_output(
+        algorithm="qpe",
+        script_name="gs_qpe.py",
+        problem={
+            "molecule": {
+                "name": args.molecule,
+                "basis": mol_info["basis"],
+                "bond_length": mol_info["bond_length"],
+                "num_qubits": mol_info["num_qubits"]
+            },
+            "reference_energies": {
+                "scf_hartree": scf_energy,
+                "fci_hartree": fci_energy
+            }
         },
-        "qpe": qpe_results,
-        "analysis": {
-            "qpe_energy_hartree": qpe_energy,
-            "error_hartree": qpe_error,
-            "error_vs_chemical_accuracy": qpe_error / chemical_accuracy,
-            "within_chemical_accuracy": bool(qpe_error < chemical_accuracy)
-        },
-        "run_config": {
+        config={
+            "num_ancilla": args.ancilla,
+            "evolution_time": qpe_results["evolution_time"],
             "shots": args.shots,
             "t1_us": args.t1,
             "t2_us": args.t2,
             "backend": args.backend
+        },
+        results=qpe_results,
+        metrics={
+            "qpe_energy_hartree": qpe_energy,
+            "error_hartree": qpe_error,
+            "error_vs_chemical_accuracy": qpe_error / chemical_accuracy,
+            "within_chemical_accuracy": bool(qpe_error < chemical_accuracy)
         }
-    }
+    )
     
-    print(json.dumps(results, indent=2))
+    output_json(output)

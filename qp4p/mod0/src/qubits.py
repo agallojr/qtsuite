@@ -14,6 +14,7 @@ from typing import List
 from qiskit import QuantumCircuit, QuantumRegister
 from qp4p_circuit import run_circuit_display
 from qp4p_args import add_standard_quantum_args
+from qp4p_output import output_json
 
 
 def circiuit_state_prep(n: int, state: bool = False) -> QuantumCircuit:
@@ -108,21 +109,21 @@ if __name__ == "__main__":
         description="Qubit examples",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python mod0/src/qubits.py prep 
-  python mod0/src/qubits.py prep -n 5 --state 1 --t1 50 --t2 30
+  python mod0/src/qubits.py --example prep 
+  python mod0/src/qubits.py --example prep -n 5 --state 1 --t1 50 --t2 30
 
-  python mod0/src/qubits.py hadamard
-  python mod0/src/qubits.py hadamard -n 4 --t1 50 --t2 30
+  python mod0/src/qubits.py --example hadamard
+  python mod0/src/qubits.py --example hadamard -n 4 --t1 50 --t2 30
 
-  python mod0/src/qubits.py ghz
-  python mod0/src/qubits.py ghz -n 5 --t1 50 --t2 30
+  python mod0/src/qubits.py --example ghz
+  python mod0/src/qubits.py --example ghz -n 5 --t1 50 --t2 30
 
-  python mod0/src/qubits.py amplitude --data 0.5 0.5 0.5 0.5
-  python mod0/src/qubits.py amplitude -n 3 --data 1 0 0 0  --t1 50 --t2 30
+  python mod0/src/qubits.py --example amplitude --data 0.5 0.5 0.5 0.5
+  python mod0/src/qubits.py --example amplitude -n 3 --data 1 0 0 0  --t1 50 --t2 30
 """)
-    parser.add_argument("example", choices=["prep", "hadamard", "ghz", "amplitude"],
-                        help="Which example to run")
-    parser.add_argument("-n", type=int, default=3,
+    parser.add_argument("--example", choices=["prep", "hadamard", "ghz", "amplitude"],
+                        required=True, help="Which example to run")
+    parser.add_argument("-n", "--n", type=int, default=3,
                         help="Number of qubits (default: 3)")
     parser.add_argument("--state", type=int, choices=[0, 1], default=0,
                         help="Prepare qubits in |0> or |1> state (default: 0)")
@@ -135,15 +136,31 @@ if __name__ == "__main__":
     display = not args.no_display
 
     if args.example == "prep":
-        run_circuit_display(circiuit_state_prep(args.n, state=args.state),
-            t1=args.t1, t2=args.t2, backend=args.backend, coupling_map=args.coupling_map, display=display)
+        qc = circiuit_state_prep(args.n, state=args.state)
+        algorithm = f"state_prep_{args.state}"
+        problem = {"description": f"Prepare {args.n} qubits in |{args.state}> state", "n": args.n, "state": args.state}
     elif args.example == "hadamard":
-        run_circuit_display(circuit_hadamard_all(args.n), t1=args.t1, t2=args.t2, backend=args.backend, 
-                          coupling_map=args.coupling_map, display=display)
+        qc = circuit_hadamard_all(args.n)
+        algorithm = "hadamard_superposition"
+        problem = {"description": f"Hadamard superposition on {args.n} qubits", "n": args.n}
     elif args.example == "ghz":
-        run_circuit_display(circuit_ghz(args.n), t1=args.t1, t2=args.t2, backend=args.backend, 
-                          coupling_map=args.coupling_map, display=display)
-    elif args.example == "amplitude":
-        run_circuit_display(circuit_amplitude_encoding(args.n, args.data),
-            t1=args.t1, t2=args.t2, backend=args.backend, coupling_map=args.coupling_map, display=display)
-
+        qc = circuit_ghz(args.n)
+        algorithm = "ghz_state"
+        problem = {"description": f"GHZ entangled state with {args.n} qubits", "n": args.n}
+    else:  # amplitude
+        qc = circuit_amplitude_encoding(args.n, args.data)
+        algorithm = "amplitude_encoding"
+        problem = {"description": f"Amplitude encoding with {len(args.data)} values", "n": args.n, "data": args.data}
+    
+    # Run circuit and get transpile/execution results
+    result = run_circuit_display(qc, args=args, display=display)
+    
+    # Output standardized JSON
+    output_json(
+        algorithm=algorithm,
+        problem=problem,
+        config_args=args,
+        original_circuit=qc,
+        transpile_result=result["transpile_result"],
+        results_data=result["results_data"]
+    )

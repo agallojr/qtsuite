@@ -18,6 +18,7 @@ from qiskit_algorithms import AmplificationProblem, Grover
 
 from qp4p_circuit import run_circuit, BASIS_GATES
 from qp4p_args import add_standard_quantum_args
+from qp4p_output import create_standardized_output, output_json
 
 # *****************************************************************************
 
@@ -30,7 +31,7 @@ if __name__ == "__main__":
                         help="Number of Grover iterations (default: computed optimally)")
     parser.add_argument("--n", type=int, default=3,
                         help="Number of qubits (default: 3)")
-    add_standard_quantum_args(parser, include_shots=False)
+    add_standard_quantum_args(parser, include_shots=True)
     args = parser.parse_args()
 
     marked_states = args.targets
@@ -142,10 +143,32 @@ if __name__ == "__main__":
             for state, count in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
         }
     }
-    results["run"]["t1_us"] = args.t1
-    results["run"]["t2_us"] = args.t2
-    results["transpiled_stats"] = run_result["transpiled_stats"]
-    results["backend_info"] = json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None
-
-    # 11. Print results as JSON
-    print(json.dumps(results, indent=2))
+    output = create_standardized_output(
+        algorithm="grover",
+        script_name="grovers.py",
+        problem={
+            "num_qubits": num_qubits,
+            "num_states": num_states,
+            "num_marked": num_marked,
+            "target_states": marked_states
+        },
+        config={
+            "iterations": iterations,
+            "shots": args.shots,
+            "t1_us": args.t1,
+            "t2_us": args.t2
+        },
+        results={
+            "search_successful": is_success,
+            "top_measurement": top_measurement,
+            "top_counts": {
+                state: {"count": count, "percent": round(100 * count / args.shots, 1)}
+                for state, count in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
+            }
+        },
+        circuit_info=results["circuit_stats"],
+        backend_info=json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None,
+        visualization_data=results.get("visualization_data")
+    )
+    
+    output_json(output)

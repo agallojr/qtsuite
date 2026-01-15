@@ -25,9 +25,9 @@ from scipy.optimize import minimize
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import real_amplitudes
 from qiskit.quantum_info import Statevector
-from qp4p_args import add_backend_args
+from qp4p_args import add_noise_args, add_backend_args
+from qp4p_output import create_standardized_output, output_json
 from qp4p_circuit import BASIS_GATES, get_fake_backend
-
 
 
 def parse_matrix(s: str) -> np.ndarray:
@@ -243,6 +243,7 @@ if __name__ == "__main__":
                         help="Max optimizer iterations (default: 200)")
     parser.add_argument("--reps", type=int, default=3,
                         help="Ansatz repetitions/depth (default: 3)")
+    add_noise_args(parser)
     add_backend_args(parser)
     args = parser.parse_args()
 
@@ -257,24 +258,24 @@ if __name__ == "__main__":
         A_orig, b_orig = generate_random_system(4, seed=42)
     
     validate_system(A_orig, b_orig)
-    n_orig = A_orig.shape[0]
+    original_size = A_orig.shape[0]
     
     # Classical solution
-    classical_x = np.linalg.solve(A_orig, b_orig)
+    classical_solution = np.linalg.solve(A_orig, b_orig)
     
     # 2. Pad to power of 2 if needed
-    A, b, _ = pad_system(A_orig, b_orig)
+    A, b, padded_size = pad_system(A_orig, b_orig)
     n = A.shape[0]
     num_qubits = int(np.log2(n))
     
     # 3. Solve with VQLS
-    quantum_x_full, ansatz, optimal_params, opt_result = solve_vqls(A, b, args.maxiter, args.reps)
+    quantum_solution_full, ansatz, optimal_params, opt_result = solve_vqls(A, b, args.maxiter, args.reps)
     
     # Extract original components
-    quantum_x = quantum_x_full[:n_orig]
+    quantum_solution = quantum_solution_full[:original_size]
     
     # 4. Compute fidelity
-    fidelity = compute_fidelity(classical_x, quantum_x)
+    fidelity = compute_fidelity(classical_solution, quantum_solution)
     
     # 5. Transpile the bound ansatz for backend stats
     # Bind optimal parameters to get the actual circuit that would be executed
@@ -295,30 +296,40 @@ if __name__ == "__main__":
     }
     
     # 6. Build results
-    results = {
-        "problem": {
+    output = create_standardized_output(
+        algorithm="vlqs",
+        script_name="ax_equals_b_vlqs.py",
+        problem={
             "matrix": A_orig.tolist(),
             "rhs": b_orig.tolist(),
-            "original_size": n_orig,
-            "padded_size": n if n != n_orig else None,
-            "condition_number": round(float(np.linalg.cond(A_orig)), 2)
+            "original_size": original_size,
+            "padded_size": padded_size,
+            "condition_number": float(np.linalg.cond(A_orig))
         },
-        "classical_solution": classical_x.tolist(),
-        "quantum_solution": quantum_x.tolist(),
-        "fidelity": round(fidelity, 4),
-        "optimization": {
-            "iterations": int(opt_result.nfev),
-            "final_cost": round(float(opt_result.fun), 6),
-            "success": bool(opt_result.success) if hasattr(opt_result, 'success') else None
+        config={
+            "ansatz_reps": args.reps,
+            "maxiter": args.maxiter,
+            "t1": args.t1,
+            "t2": args.t2,
+            "backend": args.backend
         },
-        "circuit_stats": {
+        results={
+            "classical_solution": classical_solution.tolist(),
+            "quantum_solution": quantum_solution.tolist()
+        },
+        metrics={
+            "fidelity": float(fidelity),
+            "optimization_iterations": int(opt_result.nfev),
+            "optimization_cost": round(float(opt_result.fun), 6),
+            "optimization_success": bool(opt_result.success) if hasattr(opt_result, 'success') else None
+        },
+        circuit_info={
             "num_qubits": int(ansatz.num_qubits),
             "depth": int(ansatz.depth()),
-            "num_parameters": int(ansatz.num_parameters)
+            "num_parameters": int(ansatz.num_parameters),
+            "transpiled_stats": transpiled_stats
         },
-        "transpiled_stats": transpiled_stats,
-        "backend_info": backend_info
-    }
+        backend_info=backend_info
+    )
     
-    # 7. Print results
-    print(json.dumps(results, indent=2))
+    output_json(output)
