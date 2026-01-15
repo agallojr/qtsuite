@@ -271,7 +271,7 @@ def run_postproc(postproc_list: list, postproc_json: Path, script_dir: Path = No
     return results
 
 
-def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bool = False, group_filter: str = None) -> dict:
+def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bool = False, group_filter: list = None) -> dict:
     """
     Run a parameter sweep from a TOML configuration file.
     
@@ -280,7 +280,7 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
         script: Path to the Python script to run (will be invoked as 'python <script>')
         arg_mapping: Optional mapping of param names to CLI arg names
         dry_run: If True, print commands without executing
-        group_filter: Optional group name to run only that group (if None, run all groups)
+        group_filter: Optional list of group names to run (if None, run all groups)
     
     Returns:
         dict with results for each case
@@ -291,16 +291,29 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
     
     # Filter groups if group_filter is specified
     if group_filter:
-        if group_filter not in groups:
-            raise ValueError(f"Group '{group_filter}' not found in TOML. Available groups: {list(groups.keys())}")
-        groups = {group_filter: groups[group_filter]}
+        missing = [g for g in group_filter if g not in groups]
+        if missing:
+            raise ValueError(f"Group(s) not found: {missing}. Available groups: {list(groups.keys())}")
+        groups = {g: groups[g] for g in group_filter}
     
     # Build executable command: python <script>
-    executable = f"python {script}"
+    # May be None if each group specifies its own _script
+    executable = f"python {script}" if script else None
     
     # Get script directory for PYTHONPATH (for module imports in postproc)
-    script_path = Path(script)
-    script_dir = script_path.parent.resolve()
+    # Use first group's script if no global script
+    if script:
+        script_path = Path(script)
+        script_dir = script_path.parent.resolve()
+    else:
+        # Find first group with a _script to get script_dir
+        for group_data in groups.values():
+            group_script = group_data["params"].get("_script")
+            if group_script:
+                script_dir = Path(group_script).parent.resolve()
+                break
+        else:
+            script_dir = Path(".").resolve()
     
     # Expand ~ to user home directory (works on Unix, Mac, Windows)
     output_dir_str = global_params.get("_output_dir", "./sweep_results")
@@ -358,6 +371,13 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
         group_params = group_data["params"]
         expanded_cases = group_data["expanded_cases"]
         
+        # Check for per-group _script override
+        group_script = group_params.get("_script")
+        if group_script:
+            group_executable = f"python {group_script}"
+        else:
+            group_executable = executable
+        
         print(f"=== Group: {group_id} ({len(expanded_cases)} cases) ===")
         
         group_case_dirs = []
@@ -367,7 +387,7 @@ def run_sweep(toml_path: str, script: str, arg_mapping: dict = None, dry_run: bo
             print(f"  Case: {case_id}")
             
             # Build command - expand ~ in executable path
-            cmd_parts = executable.split()
+            cmd_parts = group_executable.split()
             cmd_parts = [str(Path(p).expanduser()) if p.startswith("~") or "/" in p or "\\" in p 
                          else p for p in cmd_parts]
             cmd_args = build_command_args(params, arg_mapping)
@@ -558,8 +578,8 @@ Usage:
                         help="Python script to run (optional if TOML specifies scripts per experiment)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print commands without executing")
-    parser.add_argument("--group", type=str, default=None,
-                        help="Run only the specified group (default: run all groups)")
+    parser.add_argument("--group", type=str, action="append", default=None,
+                        help="Run only specified group(s). Can be repeated: --group g1 --group g2")
     
     args = parser.parse_args()
     
@@ -567,12 +587,11 @@ Usage:
         # If script not provided as argument, try to read from TOML
         script = args.script
         if script is None:
-            import tomli
+            import tomli as tomli_local
             with open(args.toml_file, "rb") as f:
-                toml_data = tomli.load(f)
+                toml_data = tomli_local.load(f)
                 script = toml_data.get("global", {}).get("_script")
-                if script is None:
-                    raise ValueError("No script specified. Provide as argument or set _script in [global] section of TOML")
+                # Allow None - groups may specify their own _script
         
         results = run_sweep(args.toml_file, script, dry_run=args.dry_run, group_filter=args.group)
         

@@ -38,17 +38,11 @@ from qiskit import transpile
 
 from qp4p_args import add_backend_args, add_noise_args
 from qp4p_circuit import build_noise_model
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output
+from qp4p_linear_system import add_linear_system_args, get_linear_system
 
 
-def parse_matrix(s: str) -> np.ndarray:
-    """Parse a matrix from string like '[[2,1],[1,2]]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def parse_vector(s: str) -> np.ndarray:
-    """Parse a vector from string like '[1,0]'."""
-    return np.array(json.loads(s), dtype=float)
+# Matrix parsing moved to qp4p_linear_system helper
 
 
 def inversion(qf, res=None):
@@ -214,7 +208,9 @@ def extract_solution_from_counts(counts, n_qubits_matrix):
         solution_bits = state_index & ((1 << n_qubits_matrix) - 1)
 
         if solution_bits < n_solution:
-            quantum_solution[solution_bits] += count / total_shots
+            # Use sqrt of probability to get amplitudes, not raw probabilities
+            prob = count / total_shots
+            quantum_solution[solution_bits] += np.sqrt(prob)
 
     # Filter near-zero components
     quantum_solution[np.abs(quantum_solution) < 1e-10] = 0
@@ -234,14 +230,12 @@ if __name__ == "__main__":
         description="Solve Ax=b using HHL algorithm with Qrisp",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python ax_equals_b_hhl_qrisp.py --matrix '[[3,1],[1,3]]' --vector '[1,1]'
-  python ax_equals_b_hhl_qrisp.py --matrix '[[2,1],[1,2]]' --vector '[1,0]' --precision 4
-  python ax_equals_b_hhl_qrisp.py --matrix '[[4,1],[1,4]]' --vector '[1,1]' --shots 2048
+  python ax_equals_b_hhl_qrisp.py --size 2
+  python ax_equals_b_hhl_qrisp.py --size 2 --seed 42
+  python ax_equals_b_hhl_qrisp.py --size 2 --tridiag
+  python ax_equals_b_hhl_qrisp.py --matrix '[[2,1],[1,2]]' --vector '[1,0]'
 """)
-    parser.add_argument("--matrix", type=str, required=True,
-                        help="Matrix A as JSON string, e.g., '[[2,1],[1,2]]'")
-    parser.add_argument("--vector", type=str, required=True,
-                        help="Vector b as JSON string, e.g., '[1,0]'")
+    add_linear_system_args(parser)
     parser.add_argument("--precision", type=int, default=3,
                         help="QPE precision (number of bits, default: 3)")
     parser.add_argument("--trotter-steps", type=int, default=1,
@@ -251,32 +245,23 @@ if __name__ == "__main__":
     add_noise_args(parser)
     add_backend_args(parser)
     
-    
     args = parser.parse_args()
 
-    # Parse inputs
+    # Get linear system (require Hermitian and power of 2 for HHL)
+    # Default to size=2, seed=42 if nothing specified
+    if args.size is None and args.matrix is None:
+        args.size = 2
+        args.seed = 42
+    
     try:
-        matrix_A = parse_matrix(args.matrix)
-        vector_b = parse_vector(args.vector)
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"Error parsing matrix or vector: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # Validate dimensions
-    if matrix_A.ndim != 2 or matrix_A.shape[0] != matrix_A.shape[1]:
-        print(f"Error: Matrix must be square, got shape {matrix_A.shape}", file=sys.stderr)
+        matrix_A, vector_b, sys_metadata = get_linear_system(
+            args, require_hermitian=True, require_power_of_2=True
+        )
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     
     n = matrix_A.shape[0]
-    if len(vector_b) != n:
-        print(f"Error: Vector length ({len(vector_b)}) must match matrix dimension ({n})", 
-              file=sys.stderr)
-        sys.exit(1)
-    
-    # Check if dimension is power of 2
-    if n & (n - 1) != 0:
-        print(f"Error: Matrix dimension must be power of 2, got {n}", file=sys.stderr)
-        sys.exit(1)
 
     # Preprocess matrix
     matrix_A_scaled, scale_factor, eigenvalues_orig, eigenvalues_scaled = \
@@ -338,18 +323,22 @@ if __name__ == "__main__":
     classical_solution = np.linalg.solve(matrix_A, vector_b)
     classical_solution_normalized = classical_solution / np.linalg.norm(classical_solution)
 
-    # Compute error metrics
+    # Keep raw quantum solution before normalization
+    quantum_solution_raw = quantum_solution.copy()
+    
+    # Compute error metrics on normalized solutions
     l2_error = np.linalg.norm(quantum_solution - classical_solution_normalized)
     fidelity = np.abs(np.dot(quantum_solution, classical_solution_normalized))**2
 
     # Build standardized output
     output = create_standardized_output(
-        algorithm="hhl",
+        algorithm="hhl_qrisp",
         script_name="ax_equals_b_hhl_qrisp.py",
         problem={
-            "matrix_A": matrix_A.tolist(),
-            "vector_b": vector_b.tolist(),
+            "matrix": matrix_A.tolist(),
+            "rhs": vector_b.tolist(),
             "dimension": n,
+            "condition_number": float(sys_metadata['condition_number']),
             "eigenvalues_original": [float(e) for e in eigenvalues_orig],
             "eigenvalues_scaled": [float(e) for e in eigenvalues_scaled],
             "scale_factor": float(scale_factor)
@@ -362,9 +351,10 @@ if __name__ == "__main__":
             "coupling_map": args.coupling_map
         },
         results={
-            "quantum_normalized": quantum_solution.tolist(),
-            "classical_normalized": classical_solution_normalized.tolist(),
-            "classical_unnormalized": classical_solution.tolist()
+            "classical_solution": classical_solution.tolist(),
+            "classical_solution_normalized": classical_solution_normalized.tolist(),
+            "quantum_solution": quantum_solution_raw.tolist(),
+            "quantum_solution_normalized": quantum_solution.tolist()
         },
         metrics={
             "l2_error": float(l2_error),
@@ -377,4 +367,4 @@ if __name__ == "__main__":
         }
     )
 
-    output_json(output)
+    print(json.dumps(output, indent=2))

@@ -32,41 +32,11 @@ from linear_solvers import HHL
 
 from qp4p_args import add_backend_args, add_noise_args
 from qp4p_circuit import build_noise_model
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output
+from qp4p_linear_system import add_linear_system_args, get_linear_system
 
 
-def parse_matrix(s: str) -> np.ndarray:
-    """Parse a matrix from string like '[[2,1],[1,2]]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def parse_vector(s: str) -> np.ndarray:
-    """Parse a vector from string like '[1,0]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def validate_system(A: np.ndarray, b: np.ndarray):
-    """Validate the linear system Ax = b."""
-    if A.ndim != 2 or A.shape[0] != A.shape[1]:
-        raise ValueError(f"A must be square matrix, got shape {A.shape}")
-    
-    n = A.shape[0]
-    if len(b) != n:
-        raise ValueError(f"b length ({len(b)}) must match A dimension ({n})")
-    
-    # Check if A is Hermitian
-    if not np.allclose(A, A.conj().T):
-        raise ValueError("Matrix A must be Hermitian for HHL")
-    
-    # Check if dimension is power of 2
-    if n & (n - 1) != 0:
-        raise ValueError(f"Matrix dimension must be power of 2, got {n}")
-    
-    # Check condition number
-    cond = np.linalg.cond(A)
-    if cond > 1e10:
-        print(f"Warning: Matrix is ill-conditioned (condition number: {cond:.2e})", 
-              file=sys.stderr)
+# Matrix parsing and validation moved to qp4p_linear_system helper
 
 
 # *****************************************************************************
@@ -77,14 +47,12 @@ if __name__ == "__main__":
         description="Solve Ax=b using HHL algorithm",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python ax_equals_b_hhl.py --matrix '[[1,0.5],[0.5,1]]' --vector '[1,0]'
-  python ax_equals_b_hhl.py --matrix '[[2,1],[1,2]]' --vector '[1,1]' --backend manila
-  python ax_equals_b_hhl.py --matrix '[[3,1],[1,3]]' --vector '[1,0]' --t1 50 --t2 30
+  python ax_equals_b_hhl.py --size 2
+  python ax_equals_b_hhl.py --size 2 --seed 42
+  python ax_equals_b_hhl.py --size 2 --tridiag
+  python ax_equals_b_hhl.py --matrix '[[2,1],[1,2]]' --vector '[1,0]'
 """)
-    parser.add_argument("--matrix", type=str, required=True,
-                        help="Matrix A as JSON string, e.g., '[[2,1],[1,2]]'")
-    parser.add_argument("--vector", type=str, required=True,
-                        help="Vector b as JSON string, e.g., '[1,0]'")
+    add_linear_system_args(parser)
     parser.add_argument("--shots", type=int, default=1024,
                         help="Number of measurement shots (default: 1024)")
     add_noise_args(parser)
@@ -92,20 +60,25 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    # Parse inputs
+    # Get linear system (require Hermitian and power of 2 for HHL)
+    # Default to size=2, seed=42 if nothing specified
+    if args.size is None and args.matrix is None:
+        args.size = 2
+        args.seed = 42
+    
     try:
-        matrix_A = parse_matrix(args.matrix)
-        vector_b = parse_vector(args.vector)
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"Error parsing matrix or vector: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # Validate system
-    try:
-        validate_system(matrix_A, vector_b)
+        matrix_A, vector_b, sys_metadata = get_linear_system(
+            args, require_hermitian=True, require_power_of_2=True
+        )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+    
+    # Check condition number
+    cond = sys_metadata['condition_number']
+    if cond > 1e10:
+        print(f"Warning: Matrix is ill-conditioned (condition number: {cond:.2e})", 
+              file=sys.stderr)
 
     # Compute classical solution for comparison
     classical_solution = np.linalg.solve(matrix_A, vector_b)
@@ -147,15 +120,16 @@ if __name__ == "__main__":
     # Extract solution from statevector
     try:
         statevector = result.get_statevector()
-        # Extract solution qubits (first n components)
+        # Extract solution qubits (first n components) - use amplitudes, not probabilities
         n = len(vector_b)
-        quantum_solution = np.abs(statevector[:n])**2
+        quantum_solution = np.real(statevector[:n])  # Amplitudes (real part for Hermitian systems)
         quantum_solution_normalized = quantum_solution / np.linalg.norm(quantum_solution)
     except Exception:
         # Fallback if statevector not available
-        quantum_solution_normalized = classical_solution_normalized
+        quantum_solution = classical_solution.copy()
+        quantum_solution_normalized = classical_solution_normalized.copy()
     
-    # Compute error metrics
+    # Compute error metrics on normalized solutions
     l2_error = np.linalg.norm(quantum_solution_normalized - classical_solution_normalized)
     fidelity = np.abs(np.dot(quantum_solution_normalized, classical_solution_normalized))**2
 
@@ -164,9 +138,10 @@ if __name__ == "__main__":
         algorithm="hhl",
         script_name="ax_equals_b_hhl.py",
         problem={
-            "matrix_A": matrix_A.tolist(),
-            "vector_b": vector_b.tolist(),
-            "dimension": len(vector_b)
+            "matrix": matrix_A.tolist(),
+            "rhs": vector_b.tolist(),
+            "dimension": len(vector_b),
+            "condition_number": float(sys_metadata['condition_number'])
         },
         config={
             "shots": args.shots,
@@ -176,9 +151,10 @@ if __name__ == "__main__":
             "coupling_map": args.coupling_map
         },
         results={
-            "quantum_normalized": quantum_solution_normalized.tolist(),
-            "classical_normalized": classical_solution_normalized.tolist(),
-            "classical_unnormalized": classical_solution.tolist()
+            "classical_solution": classical_solution.tolist(),
+            "classical_solution_normalized": classical_solution_normalized.tolist(),
+            "quantum_solution": quantum_solution.tolist(),
+            "quantum_solution_normalized": quantum_solution_normalized.tolist()
         },
         metrics={
             "l2_error": float(l2_error),
@@ -191,4 +167,4 @@ if __name__ == "__main__":
         }
     )
 
-    output_json(output)
+    print(json.dumps(output, indent=2))

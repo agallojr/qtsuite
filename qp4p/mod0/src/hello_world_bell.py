@@ -15,7 +15,7 @@ import argparse
 from qiskit import QuantumCircuit
 from qp4p_output import output_json
 from qp4p_args import add_standard_quantum_args
-from qp4p_circuit import transpile_circuit, execute_circuit
+from qp4p_circuit import run_circuit_display
 
 
 if __name__ == "__main__":
@@ -29,16 +29,8 @@ if __name__ == "__main__":
     qc.cx(0, 1)       # CNOT with control=0, target=1
     qc.measure_all()  # Measure both qubits
     
-    # Transpile circuit for target backend
-    transpile_result = transpile_circuit(qc, args=args)
-    
-    # Execute the transpiled circuit
-    results_data = execute_circuit(
-        transpile_result["transpiled_circuit"],
-        transpile_result["backend"],
-        transpile_result["noise_model"],
-        args=args
-    )
+    # Run circuit and get transpile/execution results
+    result = run_circuit_display(qc, args=args, display=False)
     
     # Create standardized output and print to stdout
     output_json(
@@ -48,7 +40,7 @@ if __name__ == "__main__":
         },
         config_args=args,
         original_circuit=qc,
-        transpile_result=transpile_result,
-        results_data=results_data
+        transpile_result=result["transpile_result"],
+        results_data=result["results_data"]
     )
 

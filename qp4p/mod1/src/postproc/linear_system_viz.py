@@ -26,10 +26,13 @@ def create_visualization(data, output_file=None, display=True):
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
-    # Extract data
-    classical_x = np.array(data.get("classical_solution", []))
-    quantum_x = np.array(data.get("quantum_solution", []))
-    fidelity = data.get("fidelity", 0)
+    # Extract data from standardized JSON format
+    results = data.get("results", {})
+    metrics = data.get("metrics", {})
+    
+    classical_x = np.array(results.get("classical_solution", []))
+    quantum_x = np.array(results.get("quantum_solution", []))
+    fidelity = metrics.get("fidelity", 0)
     problem = data.get("problem", {})
     n_orig = problem.get("original_size", len(classical_x))
     condition_num = problem.get("condition_number", 0)

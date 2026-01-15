@@ -3,8 +3,10 @@
 [global]
 _script = "mod1/src/image_flip.py"
 _output_dir = "~/qp4p"
-_group_postproc = "python -m postproc.image_viz"
-_final_postproc = "python -m qp4p_print_open_cmd"
+# after a group of cases, create the viz plot
+_group_postproc = "python mod1/src/postproc/image_viz.py"
+# after all groups, pop up the image viewer
+_final_postproc = "python helpers/src/qp4p_image_gallery.py"
 
 # Size study: test different image sizes
 [size_study]

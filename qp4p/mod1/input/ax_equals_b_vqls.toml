@@ -1,9 +1,10 @@
-# Linear System Solver (Ax=b) Sweep using VQLS
+# Linear System Solver (Ax=b)
 
 [global]
 _output_dir = "~/qp4p"
-_group_postproc = "python -m postproc.linear_system_viz"
-_final_postproc = "python -m qp4p_image_gallery"
+_script = "mod1/src/ax_equals_b_vqls.py"
+_group_postproc = "python mod1/src/postproc/linear_system_viz.py"
+_final_postproc = "python helpers/src/qp4p_image_gallery.py"
 
 # Baseline: small system
 [baseline]

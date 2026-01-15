@@ -9,39 +9,12 @@ seed = 42
 optimization_level = 1
 no_display = true
 
-# State preparation: all qubits in |0> state
-[prep_0]
-example = "prep"
-n = 3
-state = 0
-
-# State preparation: all qubits in |1> state
-[prep_1]
-example = "prep"
-n = 3
-state = 1
-
-# Hadamard superposition with varying qubit counts
-[hadamard_sweep]
-example = "hadamard"
-n = [2, 3, 4, 5]
-
-# GHZ entangled state with varying qubit counts
-[ghz_sweep]
-example = "ghz"
-n = [2, 3, 4, 5]
-
 # Amplitude encoding with uniform distribution
 [amplitude_uniform]
 example = "amplitude"
 n = 3
 data = [0.5, 0.5, 0.5, 0.5]
 
-# Amplitude encoding with single basis state
-[amplitude_single]
-example = "amplitude"
-n = 3
-data = [1.0, 0.0, 0.0, 0.0]
 
 # Noise study: GHZ with varying T1/T2 times
 [ghz_noise]

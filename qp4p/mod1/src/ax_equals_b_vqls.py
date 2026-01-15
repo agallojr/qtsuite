@@ -26,60 +26,12 @@ from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import real_amplitudes
 from qiskit.quantum_info import Statevector
 from qp4p_args import add_noise_args, add_backend_args
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output
 from qp4p_circuit import BASIS_GATES, get_fake_backend
+from qp4p_linear_system import add_linear_system_args, get_linear_system
 
 
-def parse_matrix(s: str) -> np.ndarray:
-    """Parse a matrix from string like '[[2,1],[1,2]]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def parse_vector(s: str) -> np.ndarray:
-    """Parse a vector from string like '[1,0]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def next_power_of_2(n: int) -> int:
-    """Return the next power of 2 >= n."""
-    if n <= 0:
-        return 1
-    p = 1
-    while p < n:
-        p *= 2
-    return p
-
-
-def pad_system(A: np.ndarray, b: np.ndarray) -> tuple:
-    """
-    Pad matrix A and vector b to next power of 2 dimension.
-    """
-    n = A.shape[0]
-    n_padded = next_power_of_2(n)
-    
-    if n_padded == n:
-        return A, b, n
-    
-    A_padded = np.eye(n_padded, dtype=A.dtype)
-    A_padded[:n, :n] = A
-    
-    b_padded = np.zeros(n_padded, dtype=b.dtype)
-    b_padded[:n] = b
-    
-    return A_padded, b_padded, n
-
-
-def validate_system(A: np.ndarray, b: np.ndarray):
-    """Validate the linear system Ax = b."""
-    if A.ndim != 2 or A.shape[0] != A.shape[1]:
-        raise ValueError(f"A must be square matrix, got shape {A.shape}")
-    
-    n = A.shape[0]
-    if len(b) != n:
-        raise ValueError(f"b length ({len(b)}) must match A dimension ({n})")
-    
-    if np.linalg.det(A) == 0:
-        raise ValueError("A is singular (not invertible)")
+# Matrix parsing and validation moved to qp4p_linear_system helper
 
 
 def build_ansatz(num_qubits: int, reps: int = 2) -> QuantumCircuit:
@@ -202,23 +154,7 @@ def compute_fidelity(classical_x: np.ndarray, quantum_x: np.ndarray) -> float:
 # *****************************************************************************
 # main
 
-def generate_random_system(size: int, seed: int = None) -> tuple:
-    """
-    Generate a random well-conditioned linear system.
-    
-    Creates a symmetric positive definite matrix (always invertible, good conditioning).
-    """
-    if seed is not None:
-        np.random.seed(seed)
-    
-    # Generate random matrix and make it symmetric positive definite
-    R = np.random.randn(size, size)
-    A = R @ R.T + size * np.eye(size)  # A = R*R^T + n*I ensures positive definite
-    
-    # Random RHS
-    b = np.random.randn(size)
-    
-    return A, b
+# Random system generation moved to qp4p_linear_system helper
 
 
 if __name__ == "__main__":
@@ -226,19 +162,12 @@ if __name__ == "__main__":
         description="Solve Ax=b using VQLS (Variational Quantum Linear Solver)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python ax_equals_b_vlqs.py
-  python ax_equals_b_vlqs.py --size 4
-  python ax_equals_b_vlqs.py --size 8 --maxiter 500
-  python ax_equals_b_vlqs.py --a "[[2,1],[1,2]]" --b "[1,0]"
+  python ax_equals_b_vqls.py --size 4
+  python ax_equals_b_vqls.py --size 4 --seed 42
+  python ax_equals_b_vqls.py --size 4 --tridiag
+  python ax_equals_b_vqls.py --matrix "[[2,1],[1,2]]" --vector "[1,0]"
 """)
-    parser.add_argument("--size", type=int, default=None,
-                        help="Generate random NxN system (overrides --a and --b)")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed for reproducibility")
-    parser.add_argument("--a", type=str, default=None,
-                        help="Matrix A as JSON")
-    parser.add_argument("--b", type=str, default=None,
-                        help="Vector b as JSON")
+    add_linear_system_args(parser)
     parser.add_argument("--maxiter", type=int, default=200,
                         help="Max optimizer iterations (default: 200)")
     parser.add_argument("--reps", type=int, default=3,
@@ -247,25 +176,24 @@ if __name__ == "__main__":
     add_backend_args(parser)
     args = parser.parse_args()
 
-    # 1. Generate or parse the system
-    if args.size is not None:
-        A_orig, b_orig = generate_random_system(args.size, args.seed)
-    elif args.a is not None and args.b is not None:
-        A_orig = parse_matrix(args.a)
-        b_orig = parse_vector(args.b)
-    else:
-        # Default 4x4 example
-        A_orig, b_orig = generate_random_system(4, seed=42)
+    # 1. Get the linear system (handles random, tridiagonal, or explicit)
+    # Default to size=4, seed=42 if nothing specified
+    if args.size is None and args.matrix is None:
+        args.size = 4
+        args.seed = 42
     
-    validate_system(A_orig, b_orig)
-    original_size = A_orig.shape[0]
+    A_orig, b_orig, sys_metadata = get_linear_system(args, require_power_of_2=True)
+    original_size = sys_metadata['original_size']
     
-    # Classical solution
-    classical_solution = np.linalg.solve(A_orig, b_orig)
+    # Classical solution (use original unpadded system)
+    A_unpadded = A_orig[:original_size, :original_size]
+    b_unpadded = b_orig[:original_size]
+    classical_solution = np.linalg.solve(A_unpadded, b_unpadded)
     
-    # 2. Pad to power of 2 if needed
-    A, b, padded_size = pad_system(A_orig, b_orig)
+    # 2. Use padded system for quantum
+    A, b = A_orig, b_orig
     n = A.shape[0]
+    padded_size = sys_metadata.get('padded_size', n)
     num_qubits = int(np.log2(n))
     
     # 3. Solve with VQLS
@@ -274,8 +202,13 @@ if __name__ == "__main__":
     # Extract original components
     quantum_solution = quantum_solution_full[:original_size]
     
-    # 4. Compute fidelity
+    # 4. Normalize solutions for comparison
+    classical_solution_normalized = classical_solution / np.linalg.norm(classical_solution)
+    quantum_solution_normalized = quantum_solution / np.linalg.norm(quantum_solution)
+    
+    # Compute metrics on normalized solutions
     fidelity = compute_fidelity(classical_solution, quantum_solution)
+    l2_error = float(np.linalg.norm(quantum_solution_normalized - classical_solution_normalized))
     
     # 5. Transpile the bound ansatz for backend stats
     # Bind optimal parameters to get the actual circuit that would be executed
@@ -297,13 +230,12 @@ if __name__ == "__main__":
     
     # 6. Build results
     output = create_standardized_output(
-        algorithm="vlqs",
-        script_name="ax_equals_b_vlqs.py",
+        algorithm="vqls",
+        script_name="ax_equals_b_vqls.py",
         problem={
             "matrix": A_orig.tolist(),
             "rhs": b_orig.tolist(),
-            "original_size": original_size,
-            "padded_size": padded_size,
+            "dimension": original_size,
             "condition_number": float(np.linalg.cond(A_orig))
         },
         config={
@@ -315,10 +247,13 @@ if __name__ == "__main__":
         },
         results={
             "classical_solution": classical_solution.tolist(),
-            "quantum_solution": quantum_solution.tolist()
+            "classical_solution_normalized": classical_solution_normalized.tolist(),
+            "quantum_solution": quantum_solution.tolist(),
+            "quantum_solution_normalized": quantum_solution_normalized.tolist()
         },
         metrics={
             "fidelity": float(fidelity),
+            "l2_error": l2_error,
             "optimization_iterations": int(opt_result.nfev),
             "optimization_cost": round(float(opt_result.fun), 6),
             "optimization_success": bool(opt_result.success) if hasattr(opt_result, 'success') else None
@@ -332,4 +267,5 @@ if __name__ == "__main__":
         backend_info=backend_info
     )
     
-    output_json(output)
+    # Print JSON to stdout
+    print(json.dumps(output, indent=2))

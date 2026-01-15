@@ -149,31 +149,19 @@ def create_standardized_output(
     Returns:
         Standardized dictionary ready for JSON serialization
     """
-    # Extract from transpile_result if provided (handle dict or list of dicts)
+    # Extract from transpile_result if provided (handle single or list)
     if transpile_result is not None:
         # Check if it's a list of transpile results
         if isinstance(transpile_result, list):
             # Extract from first result for now (could aggregate later)
-            if len(transpile_result) > 0:
-                first_result = transpile_result[0]
-                if isinstance(first_result, dict):
-                    if transpiled_circuit is None:
-                        transpiled_circuit = [tr["transpiled_circuit"] for tr in transpile_result]
-                    if backend_info is None:
-                        backend_info = first_result.get("backend_info")
-                elif len(first_result) >= 4:  # Legacy tuple format
-                    if transpiled_circuit is None:
-                        transpiled_circuit = [tr[0] for tr in transpile_result]
-                    if backend_info is None:
-                        backend_info = transpile_result[0][3]
+            if len(transpile_result) > 0 and len(transpile_result[0]) >= 4:
+                if transpiled_circuit is None:
+                    transpiled_circuit = [tr[0] for tr in transpile_result]
+                if backend_info is None:
+                    backend_info = transpile_result[0][3]  # Use first backend_info
         else:
             # Single transpile result
-            if isinstance(transpile_result, dict):
-                if transpiled_circuit is None:
-                    transpiled_circuit = transpile_result["transpiled_circuit"]
-                if backend_info is None:
-                    backend_info = transpile_result.get("backend_info")
-            elif len(transpile_result) >= 4:  # Legacy tuple format
+            if len(transpile_result) >= 4:
                 if transpiled_circuit is None:
                     transpiled_circuit = transpile_result[0]
                 if backend_info is None:

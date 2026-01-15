@@ -35,33 +35,13 @@ os.environ['QRISP_VERBOSE'] = '0'
 from qrisp.algorithms.cks import CKS, inner_CKS
 from qrisp.jasp import terminal_sampling
 
-from qp4p_output import create_standardized_output, output_json, output_error
+from qp4p_output import create_standardized_output, output_error
+from qp4p_linear_system import add_linear_system_args, get_linear_system
 
 
 
 
-def parse_matrix(s: str) -> np.ndarray:
-    """Parse a matrix from string like '[[2,1],[1,2]]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def parse_vector(s: str) -> np.ndarray:
-    """Parse a vector from string like '[1,0]'."""
-    return np.array(json.loads(s), dtype=float)
-
-
-def validate_hermitian(matrix_A, tol=1e-10):
-    """
-    Validates that matrix A is Hermitian.
-    
-    Args:
-        matrix_A: Input matrix
-        tol: Tolerance for Hermitian check
-    
-    Returns:
-        True if Hermitian, False otherwise
-    """
-    return np.allclose(matrix_A, matrix_A.conj().T, atol=tol)
+# Matrix parsing and validation moved to qp4p_linear_system helper
 
 
 def extract_solution_from_counts(counts, n_qubits_matrix):
@@ -200,14 +180,12 @@ if __name__ == "__main__":
         description="Solve Ax=b using CKS algorithm with Qrisp",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python ax_equals_b_cks_qrisp_est.py --matrix '[[3,1],[1,3]]' --vector '[1,1]'
-  python ax_equals_b_cks_qrisp_est.py --matrix '[[2,1],[1,2]]' --vector '[1,0]' --epsilon 0.01
-  python ax_equals_b_cks_qrisp_est.py --matrix '[[4,1],[1,4]]' --vector '[1,1]' --shots 2048
+  python ax_equals_b_cks_qrisp_est.py --size 2
+  python ax_equals_b_cks_qrisp_est.py --size 2 --seed 42
+  python ax_equals_b_cks_qrisp_est.py --size 2 --tridiag
+  python ax_equals_b_cks_qrisp_est.py --matrix '[[2,1],[1,2]]' --vector '[1,0]'
 """)
-    parser.add_argument("--matrix", type=str, required=True,
-                        help="Matrix A as JSON string, e.g., '[[2,1],[1,2]]'")
-    parser.add_argument("--vector", type=str, required=True,
-                        help="Vector b as JSON string, e.g., '[1,0]'")
+    add_linear_system_args(parser)
     parser.add_argument("--epsilon", type=float, default=0.01,
                         help="Target precision (default: 0.01)")
     parser.add_argument("--shots", type=int, default=1024,
@@ -215,74 +193,41 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    # Parse inputs
+    # Get linear system (require Hermitian and power of 2 for CKS)
+    # Default to size=2, seed=42 if nothing specified
+    if args.size is None and args.matrix is None:
+        args.size = 2
+        args.seed = 42
+    
     try:
-        matrix_A = parse_matrix(args.matrix)
-        vector_b = parse_vector(args.vector)
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"Error parsing matrix or vector: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # Validate dimensions
-    if matrix_A.ndim != 2 or matrix_A.shape[0] != matrix_A.shape[1]:
-        print(f"Error: Matrix must be square, got shape {matrix_A.shape}", file=sys.stderr)
+        matrix_A, vector_b, sys_metadata = get_linear_system(
+            args, require_hermitian=True, require_power_of_2=True
+        )
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     
     n = matrix_A.shape[0]
-    if len(vector_b) != n:
-        print(f"Error: Vector length ({len(vector_b)}) must match matrix dimension ({n})", 
-              file=sys.stderr)
-        sys.exit(1)
-    
-    # Check if dimension is power of 2
-    if n & (n - 1) != 0:
-        print(f"Error: Matrix dimension must be power of 2, got {n}", file=sys.stderr)
-        sys.exit(1)
-
-    # Validate Hermitian
-    if not validate_hermitian(matrix_A):
-        print("Error: Matrix A must be Hermitian", file=sys.stderr)
-        sys.exit(1)
-
-    # Compute matrix properties
     eigenvalues = np.linalg.eigvals(matrix_A)
-    condition_number = np.linalg.cond(matrix_A)
+    condition_number = sys_metadata['condition_number']
 
-    # Get circuit information before running
-    try:
-        circuit_info = get_cks_circuit_info(matrix_A, vector_b, args.epsilon)
-    except Exception as e:
-        print(f"Warning: Could not extract circuit info: {e}", file=sys.stderr)
-        circuit_info = {
-            "num_qubits": None,
-            "num_clbits": None,
-            "depth": None,
-            "num_gates": None,
-            "gate_counts": {}
-        }
-
-    # Run CKS algorithm (suppress Qrisp simulation output)
-    try:
-        with open(os.devnull, 'w', encoding='utf-8') as devnull:
-            with redirect_stdout(devnull), redirect_stderr(devnull):
-                counts = run_cks_algorithm(matrix_A, vector_b, args.epsilon, args.shots)
-    except Exception as e:
-        output_error(
-            algorithm="cks",
-            script_name="ax_equals_b_cks_qrisp_est.py",
-            error_message=f"CKS algorithm execution failed: {e}",
-            partial_data={
-                "problem": {
-                    "matrix_A": matrix_A.tolist(),
-                    "vector_b": vector_b.tolist(),
-                    "dimension": n
-                },
-                "config": {
-                    "epsilon": args.epsilon,
-                    "shots": args.shots
+    # Suppress all Qrisp output (progress bars, etc.)
+    with open(os.devnull, 'w', encoding='utf-8') as devnull:
+        with redirect_stdout(devnull), redirect_stderr(devnull):
+            # Get circuit information before running
+            try:
+                circuit_info = get_cks_circuit_info(matrix_A, vector_b, args.epsilon)
+            except Exception:
+                circuit_info = {
+                    "num_qubits": None,
+                    "num_clbits": None,
+                    "depth": None,
+                    "num_gates": None,
+                    "gate_counts": {}
                 }
-            }
-        )
+
+            # Run CKS algorithm
+            counts = run_cks_algorithm(matrix_A, vector_b, args.epsilon, args.shots)
 
     n_qubits = int(np.log2(len(vector_b)))
     quantum_solution = extract_solution_from_counts(counts, n_qubits)
@@ -291,7 +236,10 @@ if __name__ == "__main__":
     classical_solution = np.linalg.solve(matrix_A, vector_b)
     classical_solution_normalized = classical_solution / np.linalg.norm(classical_solution)
 
-    # Compute error metrics
+    # Keep raw quantum solution before normalization (note: extraction function already normalizes)
+    quantum_solution_raw = quantum_solution.copy()
+    
+    # Compute error metrics on normalized solutions
     l2_error = np.linalg.norm(quantum_solution - classical_solution_normalized)
     fidelity = np.abs(np.dot(quantum_solution, classical_solution_normalized))**2
 
@@ -300,20 +248,21 @@ if __name__ == "__main__":
         algorithm="cks",
         script_name="ax_equals_b_cks_qrisp_est.py",
         problem={
-            "matrix_A": matrix_A.tolist(),
-            "vector_b": vector_b.tolist(),
+            "matrix": matrix_A.tolist(),
+            "rhs": vector_b.tolist(),
             "dimension": n,
-            "eigenvalues": [float(e) for e in eigenvalues],
-            "condition_number": float(condition_number)
+            "condition_number": float(condition_number),
+            "eigenvalues": [float(e) for e in eigenvalues]
         },
         config={
             "epsilon": args.epsilon,
             "shots": args.shots
         },
         results={
-            "quantum_normalized": quantum_solution.tolist(),
-            "classical_normalized": classical_solution_normalized.tolist(),
-            "classical_unnormalized": classical_solution.tolist()
+            "classical_solution": classical_solution.tolist(),
+            "classical_solution_normalized": classical_solution_normalized.tolist(),
+            "quantum_solution": quantum_solution_raw.tolist(),
+            "quantum_solution_normalized": quantum_solution.tolist()
         },
         metrics={
             "l2_error": float(l2_error),
@@ -322,4 +271,4 @@ if __name__ == "__main__":
         circuit_info=circuit_info
     )
 
-    output_json(output)
+    print(json.dumps(output, indent=2))

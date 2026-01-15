@@ -123,10 +123,14 @@ if __name__ == "__main__":
     # 4. Transpile and execute the circuit
     # Transpile
     transpile_result = transpile_circuit(qc, args)
-    qc_transpiled, backend, noise_model, _ = transpile_result
     
     # Execute
-    result = execute_circuit(qc_transpiled, backend, noise_model, args=args)
+    result = execute_circuit(
+        transpile_result["transpiled_circuit"],
+        transpile_result["backend"],
+        transpile_result["noise_model"],
+        args=args
+    )
     counts = result["counts"]
 
     # 5. Reconstruct images

@@ -128,12 +128,16 @@ if __name__ == "__main__":
     parser.add_argument("--state", type=int, choices=[0, 1], default=0,
                         help="Prepare qubits in |0> or |1> state (default: 0)")
     add_standard_quantum_args(parser, default_shots=1024)
-    parser.add_argument("--data", type=float, nargs='+', default=[0.5, 0.5, 0.5, 0.5],
-                        help="Data vector for amplitude encoding (default: [0.5, 0.5, 0.5, 0.5])")
+    parser.add_argument("--data", type=str, default="[0.5, 0.5, 0.5, 0.5]",
+                        help="Data vector for amplitude encoding as JSON array (default: [0.5, 0.5, 0.5, 0.5])")
     parser.add_argument("--no-display", action="store_true",
                         help="Disable graphical display of circuit and histogram")
     args = parser.parse_args()
     display = not args.no_display
+    
+    # Parse data from JSON string to list
+    import json
+    args.data = json.loads(args.data)
 
     if args.example == "prep":
         qc = circiuit_state_prep(args.n, state=args.state)
