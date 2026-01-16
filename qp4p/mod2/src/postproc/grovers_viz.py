@@ -30,9 +30,11 @@ def create_visualization(data, output_file=None, display=True):
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
-    # Extract data
-    target_states = data.get("target_states", [])
-    iterations = data.get("circuit_stats", {}).get("iterations", 0)
+    # Extract data from standardized JSON structure
+    problem = data.get("problem", {})
+    target_states = problem.get("target_states", [])
+    circuit_info = data.get("circuit_info", {})
+    iterations = circuit_info.get("iterations", 0)
     viz_data = data.get("visualization_data", {})
     probabilities_by_iter = viz_data.get("probabilities_by_iteration", [])
     target_indices = viz_data.get("target_indices", [])
@@ -75,9 +77,9 @@ def create_visualization(data, output_file=None, display=True):
                 transform=ax.transAxes, ha='right', va='top', color='red', fontsize=8)
     
     target_labels = ", ".join(f"|{s}⟩" for s in marked_states)
-    run_params = data.get("run", {})
-    t1 = run_params.get("t1_us")
-    t2 = run_params.get("t2_us")
+    config = data.get("config", {})
+    t1 = config.get("t1_us")
+    t2 = config.get("t2_us")
     noise_label = f" (T1={t1}µs, T2={t2}µs)" if use_noise and t1 and t2 else " (ideal)"
     fig.suptitle(f"Grover's Algorithm: {target_labels}{noise_label}", fontsize=12, fontweight='bold')
     plt.tight_layout()

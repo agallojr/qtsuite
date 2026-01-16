@@ -2,6 +2,7 @@
 
 [global]
 _output_dir = "~/qp4p"
+_script = "mod1/src/lattice_vqe.py"
 _group_postproc = "python -m postproc.lattice_viz"
 _final_postproc = "python -m qp4p_image_gallery"
 

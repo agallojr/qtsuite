@@ -27,10 +27,13 @@ def create_lattice_visualization(data, output_file=None, display=True):
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
-    lattice_config = data.get("lattice", {})
+    # Extract data from standardized JSON structure
+    problem = data.get("problem", {})
+    lattice_config = problem.get("lattice", {})
     viz_data = data.get("visualization_data", {})
-    vqe_results = data.get("vqe_results", {})
-    classical_gs = data.get("classical_ground_state", {})
+    results = data.get("results", {})
+    vqe_results = results.get("vqe_results", {})
+    metrics = data.get("metrics", {})
     
     rows = lattice_config.get("rows", 0)
     cols = lattice_config.get("cols", 0)
@@ -39,7 +42,7 @@ def create_lattice_visualization(data, output_file=None, display=True):
     energy_history = viz_data.get("energy_history", [])
     ground_state_spins = viz_data.get("ground_state_spins", [])
     final_energy = vqe_results.get("ground_state_energy", 0.0)
-    classical_energy = classical_gs.get("energy", None)
+    classical_energy = metrics.get("classical_energy", None)
     
     fig = plt.figure(figsize=(10, 5))
     gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
@@ -164,8 +167,9 @@ def main():
             data = json.load(f)
         
         # Generate output filename based on lattice config
-        lattice_config = data.get("lattice", {})
-        vqe_config = data.get("vqe_config", {})
+        problem = data.get("problem", {})
+        lattice_config = problem.get("lattice", {})
+        vqe_config = data.get("config", {})
         rows = lattice_config.get("rows", 0)
         cols = lattice_config.get("cols", 0)
         ansatz = vqe_config.get("ansatz_type", "unknown")

@@ -1,0 +1,31 @@
+# Ground State Energy Algorithm Comparison
+# Compares VQE, QPE, and SQD on the same molecule
+
+[global]
+_output_dir = "~/qp4p"
+_final_postproc = "python mod3/src/postproc/gs_comparison_viz.py"
+molecule = "H2"
+shots = 8192
+
+
+# VQE ground state solver (statevector for speed)
+[vqe]
+_script = "mod1/src/gs_vqe.py"
+method = "qiskit"
+ansatz = "EfficientSU2"
+entanglement = "linear"
+reps = 2
+optimizer = "COBYLA"
+maxiter = 200
+
+# QPE ground state solver
+[qpe]
+_script = "mod1/src/gs_qpe.py"
+ancilla = 6
+
+# SQD ground state solver (circuit-based, not synthetic)
+[sqd]
+_script = "mod3/src/gs_sqd.py"
+iterations = 10
+batches = 3
+samples = 1000

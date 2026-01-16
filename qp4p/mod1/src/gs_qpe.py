@@ -17,7 +17,7 @@ from qiskit.circuit.library import QFTGate
 from qp4p_circuit import run_circuit, BASIS_GATES
 from qp4p_chem import MOLECULES, build_molecular_hamiltonian_fci
 from qp4p_args import add_noise_args, add_backend_args
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output, _write_json
 
 
 def build_qpe_circuit(hamiltonian_matrix: np.ndarray, num_ancilla: int = 4, 
@@ -241,4 +241,4 @@ if __name__ == "__main__":
         }
     )
     
-    output_json(output)
+    _write_json(output)

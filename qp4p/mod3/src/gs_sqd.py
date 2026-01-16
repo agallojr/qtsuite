@@ -22,7 +22,7 @@ from qiskit_addon_sqd.subsampling import postselect_by_hamming_right_and_left, s
 from qiskit_addon_sqd.fermion import bitstring_matrix_to_ci_strs, solve_fermion
 
 from qp4p_args import add_noise_args, add_backend_args
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output, _write_json
 from qp4p_circuit import build_noise_model
 from qp4p_chem import MOLECULES
 
@@ -44,15 +44,19 @@ def get_counts_from_hf_circuit(num_orbitals: int, num_elec_a: int, num_elec_b: i
         t2: T2 dephasing time in µs (optional)
     
     Returns:
-        counts: Measurement counts dictionary
+        tuple: (counts, circuit_info) where circuit_info contains depth and gate counts
     """
     qubits = QuantumRegister(2 * num_orbitals, name="q")
     circuit = QuantumCircuit(qubits)
 
     # Prepare Hartree-Fock state
-    total_electrons = num_elec_a + num_elec_b
-    for i in range(total_electrons):
-        circuit.x(i)
+    # Convention: right half (qubits 0 to num_orbitals-1) = alpha spin
+    #             left half (qubits num_orbitals to 2*num_orbitals-1) = beta spin
+    # Occupy lowest orbitals for each spin
+    for i in range(num_elec_a):
+        circuit.x(i)  # alpha electrons in right half
+    for i in range(num_elec_b):
+        circuit.x(num_orbitals + i)  # beta electrons in left half
 
     # Add small random rotations to break symmetry
     np.random.seed(seed)
@@ -82,7 +86,14 @@ def get_counts_from_hf_circuit(num_orbitals: int, num_elec_a: int, num_elec_b: i
         transpiled_circuit = transpile(circuit, backend=backend, optimization_level=1)
         result = backend.run(transpiled_circuit, shots=shots).result()
 
-    return result.get_counts()
+    # Collect circuit info
+    circuit_info = {
+        "num_qubits": transpiled_circuit.num_qubits,
+        "depth": transpiled_circuit.depth(),
+        "gate_counts": dict(transpiled_circuit.count_ops())
+    }
+    
+    return result.get_counts(), circuit_info
 
 
 def run_sqd_pipeline(
@@ -115,10 +126,11 @@ def run_sqd_pipeline(
     """
     rng = np.random.default_rng(rng_seed)
     
+    hf_circuit_info = None
     if synthetic_counts:
         counts = generate_counts_uniform(shots, num_orbitals * 2, rand_seed=rng)
     else:
-        counts = get_counts_from_hf_circuit(
+        counts, hf_circuit_info = get_counts_from_hf_circuit(
             num_orbitals, num_alpha, num_beta, rng_seed, shots,
             backend_name, t1, t2
         )
@@ -153,10 +165,18 @@ def run_sqd_pipeline(
             hamming_right=num_alpha,
             hamming_left=num_beta,
         )
+        
+        # Check if we have enough samples after postselection
+        if bitstring_matrix_ps.shape[0] == 0:
+            raise ValueError(
+                f"No bitstrings passed Hamming weight filter (need {num_alpha} alpha, {num_beta} beta). "
+                "Try increasing shots or using --synthetic for testing."
+            )
+        
         batches = subsample(
             bitstring_matrix_ps,
             probs_array_ps,
-            samples_per_batch=samples_per_batch,
+            samples_per_batch=min(samples_per_batch, bitstring_matrix_ps.shape[0]),
             num_batches=num_batches,
             rand_seed=rng,
         )
@@ -190,7 +210,7 @@ def run_sqd_pipeline(
 
     final_energy = float(np.min(energy_hist[-1, :]))
     
-    return energy_hist, spin_sq_hist, final_energy
+    return energy_hist, spin_sq_hist, final_energy, hf_circuit_info
 
 
 # *****************************************************************************
@@ -253,10 +273,13 @@ if __name__ == "__main__":
     
     # Extract molecular integrals in MO basis
     h1e = mf.mo_coeff.T @ mf.get_hcore() @ mf.mo_coeff
-    h2e = ao2mo.kernel(mol, mf.mo_coeff)
+    h2e_compressed = ao2mo.kernel(mol, mf.mo_coeff)
     nuclear_repulsion_energy = mf.energy_nuc()
     num_orbitals = mf.mo_coeff.shape[1]
     num_alpha, num_beta = mol.nelec
+    
+    # Restore 4D electron repulsion integrals from compressed format
+    h2e = ao2mo.restore(1, h2e_compressed, num_orbitals)
     
     # Use FCI energy as exact reference if not provided
     if args.exact_energy is None:
@@ -266,7 +289,7 @@ if __name__ == "__main__":
     electron_repulsion_integrals = h2e
 
     # Run SQD pipeline
-    energy_hist, spin_sq_hist, final_energy = run_sqd_pipeline(
+    energy_hist, spin_sq_hist, final_energy, hf_circuit_info = run_sqd_pipeline(
         num_orbitals=num_orbitals,
         core_hamiltonian=core_hamiltonian,
         electron_repulsion_integrals=electron_repulsion_integrals,
@@ -325,9 +348,14 @@ if __name__ == "__main__":
             "coupling_map": args.coupling_map
         },
         results={
-            "final_energy": final_energy,
-            "energy_history": energy_hist,
-            "spin_sq_history": spin_sq_hist
+            "final_energy": float(final_energy),
+            "energy_history": energy_hist.tolist(),
+            "spin_sq_history": spin_sq_hist.tolist()
+        },
+        circuit_info=hf_circuit_info if hf_circuit_info else {
+            "num_qubits": 2 * num_orbitals,
+            "depth": 0,
+            "note": "Synthetic counts used - no quantum circuit"
         },
         metrics={
             "sqd_energy_hartree": final_energy,
@@ -336,4 +364,4 @@ if __name__ == "__main__":
         }
     )
 
-    output_json(output)
+    _write_json(output)

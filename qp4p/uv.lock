@@ -426,14 +426,14 @@ wheels = [
 
 [[package]]
 name = "ibm-platform-services"
-version = "0.73.0"
+version = "0.73.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-cloud-sdk-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/75/16/c1962b74ddeee1c5320d73b8d578ec15a416d019d7207ae66020cdb025cd/ibm_platform_services-0.73.0.tar.gz", hash = "sha256:73e139a52518306dea3b6532a4ee8b725fd8d0fc9caa40ef5d8e7ffeadc9f782", size = 361304, upload-time = "2026-01-13T07:46:09.461Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/59/ab91ace4a8aa77149680d95795c1f36276e4afff1ba7fe16c2f3f1778175/ibm_platform_services-0.73.1.tar.gz", hash = "sha256:1eb7f478f4911e4b44c8e42ac69bd754e59fa50de9d1864b1c3fe58ade445cde", size = 361453, upload-time = "2026-01-15T17:47:33.107Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/92/4a2a354f02095df4fb333698ab0e8422f3be3b0a1bec0b3ef9863cd2e817/ibm_platform_services-0.73.0-py3-none-any.whl", hash = "sha256:7e554774d36f60b69d306901820381fbf18880136f96936ab1280ed491051476", size = 378446, upload-time = "2026-01-13T07:46:07.954Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/1a/dbf8cd5547b2065dc819b680049e3a11e5cc02f9039f871f492d165ea0a2/ibm_platform_services-0.73.1-py3-none-any.whl", hash = "sha256:b6bec0aaba82bccf19ae53376dac2f23815e5152c02f6398fbe6af198ef25a72", size = 378634, upload-time = "2026-01-15T17:47:32.039Z" },
 ]
 
 [[package]]

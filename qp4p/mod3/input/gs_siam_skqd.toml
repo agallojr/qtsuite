@@ -3,6 +3,9 @@
 
 [global]
 _output_dir = "~/qp4p"
+_script = "mod3/src/gs_siam_skqd.py"
+_group_postproc = "python mod3/src/postproc/skqd_viz.py"
+_final_postproc = "python helpers/src/qp4p_image_gallery.py"
 num-orbs = 6
 hopping = 1.0
 onsite = 4.0

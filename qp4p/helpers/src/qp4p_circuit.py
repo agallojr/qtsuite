@@ -360,9 +360,13 @@ def run_circuit(qc: QuantumCircuit, shots: int = 1024,
     Longer is better.
     """
     # Transpile the circuit
-    qc_transpiled, backend_simulator, noise_model, backend_info = transpile_circuit(
+    transpile_result = transpile_circuit(
         qc, t1=t1, t2=t2, backend=backend, coupling_map=coupling_map
     )
+    qc_transpiled = transpile_result["transpiled_circuit"]
+    backend_simulator = transpile_result["backend"]
+    noise_model = transpile_result["noise_model"]
+    backend_info = transpile_result["backend_info"]
     
     # Execute the transpiled circuit
     exec_result = execute_circuit(qc_transpiled, backend_simulator, noise_model=noise_model, shots=shots)

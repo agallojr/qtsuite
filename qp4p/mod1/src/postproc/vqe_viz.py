@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
 """
-Visualization script for QPE ground state energy results.
+Visualization script for VQE ground state energy results.
 
-Reads JSON output from gs_qpe.py and generates visualization plots.
+Reads JSON output from gs_vqe.py and generates visualization plots.
 
 Usage:
-    python src/postproc/qpe_viz.py <stdout_json_file>
+    python src/postproc/vqe_viz.py <stdout_json_file>
     or
-    python -m postproc.qpe_viz <stdout_json_file>
+    python -m postproc.vqe_viz <stdout_json_file>
 """
 
 import json
 import sys
 from pathlib import Path
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def create_visualization(data, output_file=None, display=True):
     """
-    Create visualization of QPE results.
+    Create visualization of VQE results.
     
     Args:
-        data: Dictionary containing QPE results
+        data: Dictionary containing VQE results
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
@@ -35,8 +34,8 @@ def create_visualization(data, output_file=None, display=True):
     scf_energy = ref_energies.get("scf_hartree", 0)
     
     results = data.get("results", {})
-    qpe_energy = results.get("estimated_energy", 0)
-    phase_counts = results.get("phase_counts", {})
+    vqe_energy = results.get("energy", 0)
+    energy_history = results.get("energy_history", [])
     
     metrics = data.get("metrics", {})
     error = metrics.get("error_hartree", 0)
@@ -46,8 +45,8 @@ def create_visualization(data, output_file=None, display=True):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
     
     # Left: Energy comparison bar chart
-    energies = [fci_energy, scf_energy, qpe_energy]
-    labels = ['FCI\n(exact)', 'SCF\n(mean-field)', 'QPE\n(quantum)']
+    energies = [fci_energy, scf_energy, vqe_energy]
+    labels = ['FCI\n(exact)', 'SCF\n(mean-field)', 'VQE\n(quantum)']
     colors = ['green', 'orange', 'coral']
     
     bars = ax1.bar(labels, energies, color=colors, alpha=0.7, edgecolor='black')
@@ -63,19 +62,38 @@ def create_visualization(data, output_file=None, display=True):
                 f'{energy:.4f}',
                 ha='center', va='bottom', fontsize=7)
     
-    # Right: Phase measurement histogram
-    if phase_counts:
-        phases = sorted(phase_counts.keys())
-        counts = [phase_counts[p] for p in phases]
-        
-        ax2.bar(range(len(phases)), counts, color='steelblue', alpha=0.7, edgecolor='black')
-        ax2.set_xlabel('Measured Phase (binary)', fontsize=9)
-        ax2.set_ylabel('Counts', fontsize=9)
-        ax2.set_title('QPE Phase Measurements', fontsize=10, fontweight='bold')
-        ax2.set_xticks(range(len(phases)))
-        ax2.set_xticklabels(phases, rotation=45, ha='right', fontsize=7)
+    # Right: Energy convergence (if available)
+    if energy_history:
+        ax2.plot(energy_history, 'b-', linewidth=2, label='VQE optimization')
+        ax2.axhline(y=fci_energy, color='g', linestyle='--', 
+                   linewidth=2, label=f'FCI: {fci_energy:.4f}')
+        ax2.axhline(y=vqe_energy, color='r', linestyle=':',
+                   label=f'VQE final: {vqe_energy:.4f}')
+        ax2.set_xlabel('Iteration', fontsize=9)
+        ax2.set_ylabel('Energy (Hartree)', fontsize=9)
+        ax2.set_title('VQE Convergence', fontsize=10, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(fontsize=7)
         ax2.tick_params(labelsize=8)
-        ax2.grid(True, alpha=0.3, axis='y')
+    else:
+        # If no energy history, show attempt results if available
+        attempts = results.get("attempts", [])
+        if attempts:
+            attempt_nums = [a["attempt"] for a in attempts]
+            attempt_energies = [a["energy"] for a in attempts]
+            ax2.scatter(attempt_nums, attempt_energies, color='steelblue', s=50, alpha=0.7)
+            ax2.axhline(y=fci_energy, color='g', linestyle='--', 
+                       linewidth=2, label=f'FCI: {fci_energy:.4f}')
+            ax2.set_xlabel('Attempt', fontsize=9)
+            ax2.set_ylabel('Energy (Hartree)', fontsize=9)
+            ax2.set_title('VQE Attempts', fontsize=10, fontweight='bold')
+            ax2.grid(True, alpha=0.3)
+            ax2.legend(fontsize=7)
+            ax2.tick_params(labelsize=8)
+        else:
+            ax2.text(0.5, 0.5, 'No convergence data', 
+                    ha='center', va='center', transform=ax2.transAxes)
+            ax2.set_title('VQE Convergence', fontsize=10, fontweight='bold')
     
     # Add error info to figure
     accuracy_text = "✓" if within_accuracy else "✗"
@@ -97,7 +115,7 @@ def create_visualization(data, output_file=None, display=True):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python src/postproc/qpe_viz.py <postproc_json>")
+        print("Usage: python src/postproc/vqe_viz.py <postproc_json>")
         sys.exit(1)
     
     # Load postproc context from JSON file
@@ -118,7 +136,7 @@ def main():
             data = json.load(f)
         
         # Generate output filename
-        output_file = case_dir / "qpe_results.png"
+        output_file = case_dir / "vqe_results.png"
         
         create_visualization(data, output_file=output_file, display=False)
         print(f"Created visualization: {output_file}")

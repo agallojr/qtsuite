@@ -1,58 +1,60 @@
 #!/usr/bin/env python3
 """
-Visualization script for QPE ground state energy results.
+Visualization script for SKQD (Sample-based Krylov Quantum Diagonalization) results.
 
-Reads JSON output from gs_qpe.py and generates visualization plots.
+Reads JSON output from gs_siam_skqd.py and generates visualization plots.
 
 Usage:
-    python src/postproc/qpe_viz.py <stdout_json_file>
+    python src/postproc/skqd_viz.py <stdout_json_file>
     or
-    python -m postproc.qpe_viz <stdout_json_file>
+    python -m postproc.skqd_viz <stdout_json_file>
 """
 
 import json
 import sys
 from pathlib import Path
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def create_visualization(data, output_file=None, display=True):
     """
-    Create visualization of QPE results.
+    Create visualization of SKQD results.
     
     Args:
-        data: Dictionary containing QPE results
+        data: Dictionary containing SKQD results
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
     # Extract data from standardized JSON structure
     problem = data.get("problem", {})
-    molecule = problem.get("molecule", {})
-    mol_name = molecule.get("name", "Unknown")
-    ref_energies = problem.get("reference_energies", {})
-    fci_energy = ref_energies.get("fci_hartree", 0)
-    scf_energy = ref_energies.get("scf_hartree", 0)
+    siam_info = problem.get("siam_info", {})
+    model_name = siam_info.get("model", "SIAM")
+    num_orbs = siam_info.get("num_orbs", 0)
+    exact_energy = problem.get("exact_energy", 0)
     
     results = data.get("results", {})
-    qpe_energy = results.get("estimated_energy", 0)
-    phase_counts = results.get("phase_counts", {})
+    skqd_energy = results.get("skqd_energy", 0)
+    energy_history = results.get("energy_history", [])
     
     metrics = data.get("metrics", {})
-    error = metrics.get("error_hartree", 0)
-    within_accuracy = metrics.get("within_chemical_accuracy", False)
+    error_abs = metrics.get("error_abs", 0)
+    error_pct = metrics.get("error_pct", 0)
     
-    # Create figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
+    # Create figure with subplots
+    if energy_history:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
+    else:
+        fig, ax1 = plt.subplots(1, 1, figsize=(5, 3))
+        ax2 = None
     
     # Left: Energy comparison bar chart
-    energies = [fci_energy, scf_energy, qpe_energy]
-    labels = ['FCI\n(exact)', 'SCF\n(mean-field)', 'QPE\n(quantum)']
-    colors = ['green', 'orange', 'coral']
+    energies = [exact_energy, skqd_energy]
+    labels = ['Exact\n(ED)', 'SKQD\n(quantum)']
+    colors = ['green', 'coral']
     
     bars = ax1.bar(labels, energies, color=colors, alpha=0.7, edgecolor='black')
-    ax1.set_ylabel('Energy (Hartree)', fontsize=9)
-    ax1.set_title(f'{mol_name} Ground State Energy', fontsize=10, fontweight='bold')
+    ax1.set_ylabel('Energy', fontsize=9)
+    ax1.set_title(f'{model_name} ({num_orbs} orbitals) Ground State', fontsize=10, fontweight='bold')
     ax1.grid(True, alpha=0.3, axis='y')
     ax1.tick_params(labelsize=8)
     
@@ -63,23 +65,21 @@ def create_visualization(data, output_file=None, display=True):
                 f'{energy:.4f}',
                 ha='center', va='bottom', fontsize=7)
     
-    # Right: Phase measurement histogram
-    if phase_counts:
-        phases = sorted(phase_counts.keys())
-        counts = [phase_counts[p] for p in phases]
-        
-        ax2.bar(range(len(phases)), counts, color='steelblue', alpha=0.7, edgecolor='black')
-        ax2.set_xlabel('Measured Phase (binary)', fontsize=9)
-        ax2.set_ylabel('Counts', fontsize=9)
-        ax2.set_title('QPE Phase Measurements', fontsize=10, fontweight='bold')
-        ax2.set_xticks(range(len(phases)))
-        ax2.set_xticklabels(phases, rotation=45, ha='right', fontsize=7)
+    # Right: Energy convergence (if available)
+    if ax2 and energy_history:
+        ax2.plot(range(1, len(energy_history) + 1), energy_history, 'b-o', 
+                linewidth=2, markersize=4, label='SKQD Energy')
+        ax2.axhline(y=exact_energy, color='g', linestyle='--', 
+                   linewidth=2, label=f'Exact: {exact_energy:.4f}')
+        ax2.set_xlabel('SQD Iteration', fontsize=9)
+        ax2.set_ylabel('Energy', fontsize=9)
+        ax2.set_title('SKQD Convergence', fontsize=10, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(fontsize=7)
         ax2.tick_params(labelsize=8)
-        ax2.grid(True, alpha=0.3, axis='y')
     
     # Add error info to figure
-    accuracy_text = "✓" if within_accuracy else "✗"
-    fig.text(0.5, 0.02, f'Error: {error:.6f} Ha {accuracy_text}', 
+    fig.text(0.5, 0.02, f'Error: {error_abs:.2e} ({error_pct:.2e}%)', 
              ha='center', fontsize=8, style='italic')
     
     plt.tight_layout()
@@ -97,7 +97,7 @@ def create_visualization(data, output_file=None, display=True):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python src/postproc/qpe_viz.py <postproc_json>")
+        print("Usage: python src/postproc/skqd_viz.py <postproc_json>")
         sys.exit(1)
     
     # Load postproc context from JSON file
@@ -118,7 +118,7 @@ def main():
             data = json.load(f)
         
         # Generate output filename
-        output_file = case_dir / "qpe_results.png"
+        output_file = case_dir / "skqd_results.png"
         
         create_visualization(data, output_file=output_file, display=False)
         print(f"Created visualization: {output_file}")

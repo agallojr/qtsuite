@@ -3,6 +3,9 @@
 
 [global]
 _output_dir = "~/qp4p"
+_script = "mod3/src/gs_sqd.py"
+_group_postproc = "python mod3/src/postproc/sqd_viz.py"
+_final_postproc = "python helpers/src/qp4p_image_gallery.py"
 molecule = "H2"
 spin-sq = 0
 open-shell = false

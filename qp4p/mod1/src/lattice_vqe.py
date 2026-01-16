@@ -20,7 +20,7 @@ from qiskit_nature.second_q.hamiltonians.lattices.boundary_condition import Boun
 
 from qp4p_vqe import run_vqe_optimization
 from qp4p_args import add_noise_args, add_backend_args
-from qp4p_output import create_standardized_output, output_json, output_error
+from qp4p_output import create_standardized_output, output_error, _write_json
 
 
 def spinop_to_pauli(hamiltonian_op, num_qubits):
@@ -346,8 +346,9 @@ Examples:
         )
     
     try:
-        output = run_vqe(args)
-        output_json(output)
+        result = run_vqe(args)
+        # Write JSON using _write_json helper since result is already a complete dict
+        _write_json(result)
         
     except Exception as e:
         output_error(

@@ -2,13 +2,12 @@
 Grover's algorithm demonstration
 
 Sample execution:
-    python src/grovers.py
-    python src/grovers.py --targets 101 110 --shots 2048
-    python src/grovers.py --backend jakarta
+    python mod2/src/grovers.py
+    python mod2/src/grovers.py --targets 101 110 --shots 2048
+    python mod2/src/grovers.py --backend jakarta
 """
 
 import argparse
-import json
 import math
 import numpy as np
 from qiskit import QuantumCircuit, transpile
@@ -18,7 +17,7 @@ from qiskit_algorithms import AmplificationProblem, Grover
 
 from qp4p_circuit import run_circuit, BASIS_GATES
 from qp4p_args import add_standard_quantum_args
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import output_json
 
 # *****************************************************************************
 
@@ -143,7 +142,7 @@ if __name__ == "__main__":
             for state, count in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
         }
     }
-    output = create_standardized_output(
+    output_json(
         algorithm="grover",
         script_name="grovers.py",
         problem={
@@ -167,8 +166,6 @@ if __name__ == "__main__":
             }
         },
         circuit_info=results["circuit_stats"],
-        backend_info=json.dumps(run_result["backend_info"], separators=(',', ':')) if run_result["backend_info"] else None,
+        backend_info=run_result["backend_info"],
         visualization_data=results.get("visualization_data")
     )
-    
-    output_json(output)

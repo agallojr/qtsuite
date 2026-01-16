@@ -26,7 +26,7 @@ from qiskit_addon_sqd.subsampling import postselect_by_hamming_right_and_left, s
 from qiskit_addon_sqd.fermion import solve_fermion
 
 from qp4p_args import add_noise_args, add_backend_args
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output, _write_json
 from qp4p_chem import build_siam_hamiltonian
 from qp4p_circuit import build_noise_model
 
@@ -292,4 +292,4 @@ if __name__ == "__main__":
         }
     )
     
-    output_json(output)
+    _write_json(output)

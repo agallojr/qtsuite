@@ -13,10 +13,9 @@ Sample execution:
 """
 
 import argparse
-import json
 from qiskit import QuantumCircuit
 from qp4p_circuit import run_circuit
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import output_json
 from qp4p_args import add_standard_quantum_args
 
 
@@ -63,7 +62,7 @@ def run_example_kickback(t1: float = None, t2: float = None, backend: str = None
     result_no_kick = run_circuit(qc_no_kick, t1=t1, t2=t2, backend=backend, coupling_map="default")
     
     # Build results with visualization data
-    output = create_standardized_output(
+    output_json(
         algorithm="phase_kickback",
         script_name="phase_kickback.py",
         problem={
@@ -86,12 +85,8 @@ def run_example_kickback(t1: float = None, t2: float = None, backend: str = None
                 "description": "Target in |0⟩ - control stays in |0⟩"
             }
         },
-        backend_info=json.dumps(result_kick["backend_info"], separators=(',', ':')) if result_kick["backend_info"] else None
+        backend_info=result_kick["backend_info"]
     )
-    
-    output_json(output)
-    
-    return output
 
 
 # *****************************************************************************

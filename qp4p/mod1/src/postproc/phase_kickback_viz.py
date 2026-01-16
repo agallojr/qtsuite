@@ -46,8 +46,10 @@ def create_visualization(data, output_file=None, display=True):
         output_file: Optional path to save the plot
         display: Whether to display the plot
     """
-    with_kickback = data.get("with_kickback", {})
-    without_kickback = data.get("without_kickback", {})
+    # Extract data from standardized JSON structure
+    results = data.get("results", {})
+    with_kickback = results.get("with_kickback", {})
+    without_kickback = results.get("without_kickback", {})
     
     counts_kick = with_kickback.get("counts", {})
     counts_no_kick = without_kickback.get("counts", {})

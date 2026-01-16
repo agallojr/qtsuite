@@ -10,7 +10,7 @@ from qiskit.circuit.library import TwoLocal, efficient_su2
 from qp4p_chem import MOLECULES, build_molecular_hamiltonian_fci
 from qp4p_vqe import run_vqe_optimization
 from qp4p_args import add_noise_args, add_backend_args
-from qp4p_output import create_standardized_output, output_json
+from qp4p_output import create_standardized_output, _write_json
 
 
 # *****************************************************************************
@@ -114,6 +114,11 @@ if __name__ == "__main__":
             "backend": args.backend
         },
         results=vqe_results,
+        circuit_info={
+            "num_qubits": num_qubits,
+            "depth": vqe_results.get("ansatz_info", {}).get("depth", 0),
+            "num_parameters": vqe_results.get("ansatz_info", {}).get("num_parameters", 0)
+        },
         metrics={
             "vqe_energy_hartree": vqe_energy,
             "error_hartree": vqe_error,
@@ -122,7 +127,7 @@ if __name__ == "__main__":
         }
     )
     
-    output_json(output)
+    _write_json(output)
 
     
 

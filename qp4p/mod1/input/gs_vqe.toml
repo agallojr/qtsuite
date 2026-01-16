@@ -2,6 +2,9 @@
 
 [global]
 _output_dir = "~/qp4p"
+_script = "mod1/src/gs_vqe.py"
+_group_postproc = "python mod1/src/postproc/vqe_viz.py"
+_final_postproc = "python helpers/src/qp4p_image_gallery.py"
 
 # Method comparison: qiskit (statevector) vs manual (shots-based)
 [method_study]
