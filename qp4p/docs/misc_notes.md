@@ -74,3 +74,19 @@ Condition number stays reasonable (typically 2-5 for small systems)
         - Grover's optimal iterations, variational optimal, shots estimates
         - error mitigation techniques https://quantum.cloud.ibm.com/docs/en/guides/error-mitigation-and-suppression-techniques
         - teleportation
+
+
+- Qulacs
+- Classiq
+- Pennylane, Catalyst
+- Qiskit, Aer
+- PyQrack
+- MQT
+
+
+
+links
+
+https://github.com/mhawwary/geaero-ornl-dd-quantum-cfd
+https://github.com/mhawwary/fvm_euler_1d_solver
+
